@@ -1,0 +1,59 @@
+# ==========================================
+# Node.js & Dependencies
+# ==========================================
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ==========================================
+# Security & Environment Variables (CRITICAL)
+# ==========================================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Firebase Admin Service Account Key
+src/config/firebase-service-account.json
+firebase-service-account.json
+
+# ==========================================
+# Logs
+# ==========================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==========================================
+# Editor / IDE Specific Files
+# ==========================================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ==========================================
+# Build & Testing
+# ==========================================
+dist/
+build/
+coverage/
+.nyc_output/
