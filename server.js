@@ -1,8 +1,24 @@
 require("dotenv").config();
+const path = require('path');
+
+// Some local setups inject a dead proxy (127.0.0.1:9), which breaks Google OAuth token exchange.
+// If that value is detected, disable proxy env vars for this process.
+const proxyEnvKeys = ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy'];
+for (const key of proxyEnvKeys) {
+  const val = process.env[key];
+  if (val && /127\.0\.0\.1:9/.test(val)) {
+    delete process.env[key];
+  }
+}
+
+// Ensure GOOGLE_APPLICATION_CREDENTIALS is an absolute path
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS && !path.isAbsolute(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = path.resolve(process.cwd(), process.env.GOOGLE_APPLICATION_CREDENTIALS);
+}
+
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./src/config/db");
-const path = require('path');
 
 // Connect to MongoDB
 connectDB();

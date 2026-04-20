@@ -57,3 +57,7 @@ dist/
 build/
 coverage/
 .nyc_output/
+
+# GCP Credentials
+gcp-key.json
+*.json

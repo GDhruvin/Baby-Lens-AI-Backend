@@ -7,6 +7,7 @@ const serviceAccount = require("./firebase-service-account.json");
 // 2. Initialize the Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 });
 
 console.log("Firebase Admin Initialized successfully");
