@@ -29,9 +29,15 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // Allows your app to parse JSON bodies
 
+// Set up EJS for rendering views
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+
 app.use("/api/auth", require("./src/routes/authRoutes"));
 app.use("/api/baby-profiles", require("./src/routes/babyProfileRoutes"));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/api/themes", require("./src/routes/themeRoutes"));
+
 
 // Simple Health Check Route
 app.get("/", (req, res) => {

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Theme</title>
+</head>
+<body>
+
+<h1>Create New Theme</h1>
+
+<form
+  action="/api/themes/create"
+  method="POST"
+  enctype="multipart/form-data"
+>
+
+  <label>Theme Name *</label><br>
+  <input type="text" name="label" required /><br><br>
+
+  <label>Category *</label><br>
+  <select name="category_id" required>
+    <option value="">Select Category</option>
+
+    <% categories.forEach(category => { %>
+      <option value="<%= category._id %>">
+        <%= category.name %>
+      </option>
+    <% }) %>
+
+  </select><br><br>
+
+  <label>Description *</label><br>
+  <textarea name="description" required></textarea><br><br>
+
+  <label>Cover Image *</label><br>
+  <input
+    type="file"
+    name="image"
+    accept=".jpg,.jpeg,.png,.webp"
+    required
+  /><br><br>
+
+  <label>Prompt Template *</label><br>
+  <textarea
+    name="prompt_template"
+    required
+  ></textarea><br><br>
+
+  <label>Badge Label</label><br>
+  <input type="text" name="badge_label" /><br><br>
+
+  <label>Badge Type</label><br>
+  <input type="text" name="badge_type" /><br><br>
+
+  <button type="submit">
+    Create Theme
+  </button>
+
+</form>
+
+</body>
+</html>

@@ -1,0 +1,78 @@
+// src/routes/themeRoutes.js
+
+const express = require("express");
+const router = express.Router();
+const multer = require("multer");
+
+const {
+  renderCreateThemePage,
+  createTheme,
+  getAllThemes,
+  getSingleTheme,
+  updateTheme,
+  deleteTheme,
+} = require("../controllers/themeController");
+
+const { requireAuth } = require("../middlewares/authMiddleware");
+
+// ======================================================
+// MULTER CONFIG (Memory Storage for Firebase Upload)
+// ======================================================
+
+const storage = multer.memoryStorage();
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only JPG, JPEG, PNG, and WEBP image files are allowed"));
+    }
+  },
+});
+
+/**
+ * GET /api/themes/add-page
+ * Render the create theme HTML page
+ */
+router.get("/add-page", renderCreateThemePage);
+
+/**
+ * POST /api/themes/create
+ * Create new theme
+ *
+ * form-data:
+ * - label (required)
+ * - category (required)
+ * - description (required)
+ * - prompt_template (required)
+ * - badge_label (optional)
+ * - badge_type (optional)
+ * - image (required)
+ */
+router.post("/create", upload.single("image"), createTheme);
+
+/**
+ * GET /api/themes
+ * Get all themes
+ */
+router.get("/", getAllThemes);
+
+/**
+ * GET /api/themes/:id
+ * Get single theme details
+ */
+router.get("/:id", getSingleTheme);
+
+module.exports = router;
