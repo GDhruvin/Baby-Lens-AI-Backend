@@ -37,6 +37,7 @@ app.use("/api/auth", require("./src/routes/authRoutes"));
 app.use("/api/baby-profiles", require("./src/routes/babyProfileRoutes"));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/themes", require("./src/routes/themeRoutes"));
+app.use("/api/generations", require("./src/routes/generationRoutes"));
 
 
 // Simple Health Check Route
@@ -48,6 +49,6 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 // Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT} and accessible on all interfaces`);
 });

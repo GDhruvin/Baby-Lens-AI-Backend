@@ -12,7 +12,6 @@ const useRealGemini = process.env.USE_GEMINI_API === "true";
 
 const vertexModel = process.env.VERTEX_MODEL || "gemini-2.5-flash";
 
-const fallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash"];
 
 // ======================================================
 // MOCK RESPONSE (when USE_GEMINI_API=false)
@@ -150,68 +149,67 @@ async function deleteUploadedImage(bucket, cloudFileName) {
   }
 }
 
+async function toSignedStorageUrl(imageUrl) {
+  if (!imageUrl) return imageUrl;
+
+  try {
+    const parsed = new URL(imageUrl);
+    const isFirebaseStorageHost =
+      parsed.hostname === "firebasestorage.googleapis.com";
+    const hasToken = parsed.searchParams.has("token");
+    const isAlreadySigned = parsed.searchParams.has("X-Goog-Signature");
+
+    if (!isFirebaseStorageHost || hasToken || isAlreadySigned) {
+      return imageUrl;
+    }
+
+    const encodedPath = parsed.pathname.split("/o/")[1];
+    if (!encodedPath) return imageUrl;
+
+    const cloudPath = decodeURIComponent(encodedPath.split("?")[0]);
+    const bucket = admin.storage().bucket();
+    const [signedUrl] = await bucket.file(cloudPath).getSignedUrl({
+      action: "read",
+      expires: "01-01-2036",
+    });
+
+    return signedUrl || imageUrl;
+  } catch (error) {
+    console.warn("[BabyProfiles] Failed to normalize image URL:", error.message);
+    return imageUrl;
+  }
+}
+
 // ======================================================
-// GEMINI MODEL FALLBACK
+// GEMINI GENERATION
 // ======================================================
 
-async function generateWithModelFallback(file, initialModel) {
-  const modelCandidates = [...new Set([initialModel, ...fallbackModels])];
-
-  let lastError = null;
-
-  for (const modelName of modelCandidates) {
-    try {
-      console.log(`Trying model: ${modelName}`);
-
-      const response = await ai.models.generateContent({
-        model: modelName,
-
-        contents: [
+async function generateIdentityJson(file) {
+  return ai.models.generateContent({
+    model: vertexModel,
+    contents: [
+      {
+        role: "user",
+        parts: [
           {
-            role: "user",
-            parts: [
-              {
-                text:
-                  systemPrompt + "\nFocus only on facial identity extraction.",
-              },
-              {
-                inlineData: {
-                  data: file.buffer.toString("base64"),
-                  mimeType: file.mimetype,
-                },
-              },
-            ],
+            text:
+              systemPrompt + "\nFocus only on facial identity extraction.",
+          },
+          {
+            inlineData: {
+              data: file.buffer.toString("base64"),
+              mimeType: file.mimetype,
+            },
           },
         ],
-
-        config: {
-          responseMimeType: "application/json",
-
-          // lower randomness for consistency
-          temperature: 0.2,
-          topP: 0.8,
-        },
-      });
-
-      console.log(`Success using model: ${modelName}`);
-
-      return response;
-    } catch (error) {
-      lastError = error;
-
-      // model not available
-      if (error.status === 404) {
-        console.warn(
-          `Model not available: ${modelName}, trying next fallback...`,
-        );
-        continue;
-      }
-
-      throw error;
-    }
-  }
-
-  throw lastError || new Error("No available Gemini model found.");
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.2,
+      topP: 0.8,
+    },
+  });
 }
 
 // ======================================================
@@ -253,9 +251,10 @@ exports.uploadAndAnalyze = async (req, res) => {
       },
     });
 
-    const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${
-      bucket.name
-    }/o/${encodeURIComponent(cloudFileName)}?alt=media`;
+    const [imageUrl] = await fileRef.getSignedUrl({
+      action: "read",
+      expires: "01-01-2036",
+    });
 
     console.log("Image uploaded:", imageUrl);
 
@@ -275,7 +274,7 @@ exports.uploadAndAnalyze = async (req, res) => {
       );
 
       try {
-        const response = await generateWithModelFallback(file, vertexModel);
+        const response = await generateIdentityJson(file);
 
         console.log("Raw Vertex Response:", response.text);
 
@@ -359,6 +358,37 @@ exports.uploadAndAnalyze = async (req, res) => {
     return res.status(500).json({
       message:
         "Failed to analyze image. Please ensure the baby face is clearly visible.",
+      error: error.message,
+    });
+  }
+};
+
+exports.listMyBabyProfiles = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const profiles = await BabyProfile.find({ user_id: userId })
+      .sort({ created_at: -1 })
+      .select("_id user_id reference_image_url identity_json created_at updated_at")
+      .lean();
+
+    const profilesWithResolvedUrls = await Promise.all(
+      profiles.map(async (profile) => ({
+        ...profile,
+        reference_image_url: await toSignedStorageUrl(profile.reference_image_url),
+      })),
+    );
+
+    return res.status(200).json({
+      message: "Baby profiles fetched successfully",
+      total_profiles: profilesWithResolvedUrls.length,
+      profiles: profilesWithResolvedUrls,
+    });
+  } catch (error) {
+    console.error("List baby profiles error:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch baby profiles",
       error: error.message,
     });
   }
