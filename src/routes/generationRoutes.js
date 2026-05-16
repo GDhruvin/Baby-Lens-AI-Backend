@@ -1,12 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const { requireAuth } = require("../middlewares/authMiddleware");
-const {
-  generateFromThemeAndProfile,
-  listUploadedImagesForUser,
-} = require("../controllers/generationController");
+const create = require("../controllers/generation/create");
+const list = require("../controllers/generation/list");
 
-router.post("/create", requireAuth, generateFromThemeAndProfile);
-router.get("/uploaded-images", requireAuth, listUploadedImagesForUser);
+router.post("/create", requireAuth, create);
+router.get("/uploaded-images", requireAuth, list);
 
 module.exports = router;

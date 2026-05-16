@@ -1,8 +1,10 @@
-const admin = require("../config/firebase");
-const User = require("../models/User");
-const Device = require("../models/Device");
+// src/controllers/auth/login.js
 
-exports.login = async (req, res) => {
+const admin = require("../../config/firebase");
+const User = require("../../models/User");
+const Device = require("../../models/Device");
+
+module.exports = async (req, res) => {
   try {
     // 1. Extract the Firebase Token and Device ID
     const authHeader = req.headers.authorization;

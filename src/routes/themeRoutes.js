@@ -4,14 +4,12 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 
-const {
-  renderCreateThemePage,
-  createTheme,
-  getAllThemes,
-  getSingleTheme,
-  updateTheme,
-  deleteTheme,
-} = require("../controllers/themeController");
+const renderCreateThemePage = require("../controllers/theme/render");
+const createTheme = require("../controllers/theme/create");
+const getAllThemes = require("../controllers/theme/getAll");
+const getSingleTheme = require("../controllers/theme/getSingle");
+const updateTheme = require("../controllers/theme/update");
+const deleteTheme = require("../controllers/theme/delete");
 
 const { requireAuth } = require("../middlewares/authMiddleware");
 
@@ -74,5 +72,17 @@ router.get("/", getAllThemes);
  * Get single theme details
  */
 router.get("/:id", getSingleTheme);
+
+/**
+ * PUT /api/themes/:id
+ * Update theme
+ */
+router.put("/:id", upload.single("image"), updateTheme);
+
+/**
+ * DELETE /api/themes/:id
+ * Delete theme
+ */
+router.delete("/:id", deleteTheme);
 
 module.exports = router;

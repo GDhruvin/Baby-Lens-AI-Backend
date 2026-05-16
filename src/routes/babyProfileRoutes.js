@@ -2,10 +2,9 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const {
-  uploadAndAnalyze,
-  listMyBabyProfiles,
-} = require("../controllers/babyProfileController");
+const analyze = require("../controllers/babyProfile/analyze");
+const list = require("../controllers/babyProfile/list");
+const deleteProfile = require("../controllers/babyProfile/delete");
 const { requireAuth } = require("../middlewares/authMiddleware");
 
 // 1. Tell Multer to keep the file in RAM (Memory) instead of the Hard Drive
@@ -17,7 +16,8 @@ const upload = multer({
 });
 
 // POST /api/baby-profiles/analyze
-router.post("/analyze", requireAuth, upload.single("baby_image"), uploadAndAnalyze);
-router.get("/my-list", requireAuth, listMyBabyProfiles);
+router.post("/analyze", requireAuth, upload.single("baby_image"), analyze);
+router.get("/my-list", requireAuth, list);
+router.delete("/:id", requireAuth, deleteProfile);
 
 module.exports = router;
