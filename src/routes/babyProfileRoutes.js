@@ -19,5 +19,6 @@ const upload = multer({
 router.post("/analyze", requireAuth, upload.single("baby_image"), analyze);
 router.get("/my-list", requireAuth, list);
 router.delete("/:id", requireAuth, deleteProfile);
+router.patch("/:id", requireAuth, require("../controllers/babyProfile/update"));
 
 module.exports = router;

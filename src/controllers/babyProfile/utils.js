@@ -43,12 +43,13 @@ Rules:
 6. Preserve identity accuracy over simplification
 7. Focus only on the baby face
 8. Ignore background, clothes, accessories, toys, bedsheets, lighting
+9. For gender, you must output either "male" or "female". Do not use "neutral".
 
 Example output:
 
 {
   "age_range": "0-6 months infant",
-  "gender": "neutral",
+  "gender": "male",
   "face_lock": "round baby face with soft cheeks and small chin",
   "skin_tone": "fair warm skin tone",
   "texture_lock": "smooth soft baby skin",
@@ -180,7 +181,7 @@ async function generateIdentityJson(file) {
 
 const mockIdentity = {
   age_range: "0-6 months infant",
-  gender: "neutral",
+  gender: "male",
   face_lock: "round baby face with soft cheeks and small chin",
   skin_tone: "fair warm skin tone",
   texture_lock: "smooth soft baby skin",

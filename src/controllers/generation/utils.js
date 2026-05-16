@@ -113,11 +113,12 @@ async function uploadGeneratedImages(bucket, userId, generatedImages) {
       },
     });
 
-    const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${
-      bucket.name
-    }/o/${encodeURIComponent(cloudFileName)}?alt=media`;
+    const [signedUrl] = await fileRef.getSignedUrl({
+      action: "read",
+      expires: "01-01-2036",
+    });
 
-    uploadedUrls.push(imageUrl);
+    uploadedUrls.push(signedUrl);
   }
 
   return uploadedUrls;
