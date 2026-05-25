@@ -1,6 +1,22 @@
 // src/controllers/generation/utils.js
 
 const admin = require("../../config/firebase");
+const PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES = Number(
+  process.env.PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES || 60,
+);
+
+function buildFirebaseStorageObjectUrl(bucketName, cloudPath) {
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(cloudPath)}`;
+}
+
+async function signCloudPath(bucket, cloudPath) {
+  const expiresAt = Date.now() + PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES * 60 * 1000;
+  const [signedUrl] = await bucket.file(cloudPath).getSignedUrl({
+    action: "read",
+    expires: expiresAt,
+  });
+  return signedUrl;
+}
 
 async function toSignedStorageUrl(imageUrl) {
   if (!imageUrl) return imageUrl;
@@ -21,10 +37,7 @@ async function toSignedStorageUrl(imageUrl) {
 
     const cloudPath = decodeURIComponent(encodedPath.split("?")[0]);
     const bucket = admin.storage().bucket();
-    const [signedUrl] = await bucket.file(cloudPath).getSignedUrl({
-      action: "read",
-      expires: "01-01-2036",
-    });
+    const signedUrl = await signCloudPath(bucket, cloudPath);
 
     return signedUrl || imageUrl;
   } catch (error) {
@@ -100,11 +113,14 @@ function extractGeneratedImages(response) {
 }
 
 async function uploadGeneratedImages(bucket, userId, generatedImages) {
-  const uploadedUrls = [];
+  const uploadedImages = [];
 
-  for (const image of generatedImages) {
+  for (let i = 0; i < generatedImages.length; i += 1) {
+    const image = generatedImages[i];
     const extension = image.mimeType.includes("jpeg") ? "jpg" : "png";
-    const cloudFileName = `generated_outputs/${userId}/${Date.now()}_${image.index}.${extension}`;
+    const cloudFileName = `generated_outputs/${userId}/${Date.now()}_${i}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}.${extension}`;
     const fileRef = bucket.file(cloudFileName);
 
     await fileRef.save(Buffer.from(image.data, "base64"), {
@@ -113,18 +129,21 @@ async function uploadGeneratedImages(bucket, userId, generatedImages) {
       },
     });
 
-    const [signedUrl] = await fileRef.getSignedUrl({
-      action: "read",
-      expires: "01-01-2036",
-    });
+    const signedUrl = await signCloudPath(bucket, cloudFileName);
+    const storageObjectUrl = buildFirebaseStorageObjectUrl(bucket.name, cloudFileName);
 
-    uploadedUrls.push(signedUrl);
+    uploadedImages.push({
+      signedUrl,
+      storageObjectUrl,
+    });
   }
 
-  return uploadedUrls;
+  return uploadedImages;
 }
 
 module.exports = {
+  buildFirebaseStorageObjectUrl,
+  signCloudPath,
   toSignedStorageUrl,
   hasInvalidIdentity,
   buildFinalPrompt,

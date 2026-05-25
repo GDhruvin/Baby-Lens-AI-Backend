@@ -8,6 +8,8 @@ const {
   safeParseJson,
   validateBabyFaceDetected,
   deleteUploadedImage,
+  buildFirebaseStorageObjectUrl,
+  signCloudPath,
   generateIdentityJson,
   mockIdentity
 } = require("./utils");
@@ -47,10 +49,8 @@ module.exports = async (req, res) => {
       },
     });
 
-    const [imageUrl] = await fileRef.getSignedUrl({
-      action: "read",
-      expires: "01-01-2036",
-    });
+    const imageUrl = await signCloudPath(bucket, cloudFileName);
+    const storageObjectUrl = buildFirebaseStorageObjectUrl(bucket.name, cloudFileName);
 
     console.log("Image uploaded:", imageUrl);
 
@@ -127,7 +127,7 @@ module.exports = async (req, res) => {
 
     const newProfile = new BabyProfile({
       user_id: userId,
-      reference_image_url: imageUrl,
+      reference_image_url: storageObjectUrl,
       identity_json: identityJson,
     });
 

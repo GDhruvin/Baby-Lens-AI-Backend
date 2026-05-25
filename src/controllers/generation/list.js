@@ -1,6 +1,7 @@
 // src/controllers/generation/list.js
 
 const Generation = require("../../models/Generation");
+const { toSignedStorageUrl } = require("./utils");
 
 module.exports = async (req, res) => {
   try {
@@ -16,19 +17,31 @@ module.exports = async (req, res) => {
       )
       .lean();
 
-    const images = generations.flatMap((generation) =>
-      (generation.output_image_urls || []).map((imageUrl, index) => ({
-        generation_id: generation._id,
-        baby_profile_id: generation.baby_profile_id,
-        theme_selected: generation.theme_selected,
-        image_url: imageUrl,
-        image_index: index,
-        payment_type: generation.payment_type,
-        status: generation.status,
-        created_at: generation.created_at,
-        updated_at: generation.updated_at,
-      })),
-    );
+    const images = (
+      await Promise.all(
+        generations.map(async (generation) => {
+          const resolvedOutputUrls = await Promise.all(
+            (generation.output_image_urls || []).map((imageUrl) =>
+              toSignedStorageUrl(imageUrl),
+            ),
+          );
+
+          generation.output_image_urls = resolvedOutputUrls;
+
+          return resolvedOutputUrls.map((imageUrl, index) => ({
+            generation_id: generation._id,
+            baby_profile_id: generation.baby_profile_id,
+            theme_selected: generation.theme_selected,
+            image_url: imageUrl,
+            image_index: index,
+            payment_type: generation.payment_type,
+            status: generation.status,
+            created_at: generation.created_at,
+            updated_at: generation.updated_at,
+          }));
+        }),
+      )
+    ).flat();
 
     return res.status(200).json({
       message: "Uploaded images fetched successfully",

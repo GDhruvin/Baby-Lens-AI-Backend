@@ -2,6 +2,9 @@
 
 const { GoogleGenAI } = require("@google/genai");
 const admin = require("../../config/firebase");
+const PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES = Number(
+  process.env.PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES || 60,
+);
 
 const useRealGemini = process.env.USE_GEMINI_API === "true";
 const vertexModel = process.env.VERTEX_MODEL || "gemini-2.5-flash";
@@ -118,6 +121,19 @@ async function deleteUploadedImage(bucket, cloudFileName) {
   }
 }
 
+function buildFirebaseStorageObjectUrl(bucketName, cloudPath) {
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(cloudPath)}`;
+}
+
+async function signCloudPath(bucket, cloudPath) {
+  const expiresAt = Date.now() + PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES * 60 * 1000;
+  const [signedUrl] = await bucket.file(cloudPath).getSignedUrl({
+    action: "read",
+    expires: expiresAt,
+  });
+  return signedUrl;
+}
+
 async function toSignedStorageUrl(imageUrl) {
   if (!imageUrl) return imageUrl;
 
@@ -137,10 +153,7 @@ async function toSignedStorageUrl(imageUrl) {
 
     const cloudPath = decodeURIComponent(encodedPath.split("?")[0]);
     const bucket = admin.storage().bucket();
-    const [signedUrl] = await bucket.file(cloudPath).getSignedUrl({
-      action: "read",
-      expires: "01-01-2036",
-    });
+    const signedUrl = await signCloudPath(bucket, cloudPath);
 
     return signedUrl || imageUrl;
   } catch (error) {
@@ -194,6 +207,8 @@ module.exports = {
   safeParseJson,
   validateBabyFaceDetected,
   deleteUploadedImage,
+  buildFirebaseStorageObjectUrl,
+  signCloudPath,
   toSignedStorageUrl,
   generateIdentityJson,
   mockIdentity

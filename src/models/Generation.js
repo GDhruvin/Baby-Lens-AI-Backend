@@ -12,6 +12,10 @@ const generationSchema = new mongoose.Schema(
       ref: "BabyProfile",
       required: true,
     },
+    theme_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Theme",
+    },
     theme_selected: { type: String, required: true },
 
     // The final 3 AI generated image URLs
