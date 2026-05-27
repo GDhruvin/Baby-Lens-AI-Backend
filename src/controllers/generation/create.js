@@ -19,7 +19,6 @@ const imageModel =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 const imageLocation =
   process.env.GCP_IMAGE_LOCATION || process.env.GCP_LOCATION || "global";
-const TARGET_OUTPUT_IMAGE_COUNT = 1;
 const MAX_GENERATION_ATTEMPTS = Number(
   process.env.GENERATION_MAX_ATTEMPTS || 6,
 );
