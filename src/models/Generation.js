@@ -18,8 +18,8 @@ const generationSchema = new mongoose.Schema(
     },
     theme_selected: { type: String, required: true },
 
-    // The final 3 AI generated image URLs
-    output_image_urls: { type: String },
+    // The final AI generated image URL
+    output_image_url: { type: String },
 
     // Did they pay or use a free credit?
     payment_type: { type: String, enum: ["free", "paid"], required: true },

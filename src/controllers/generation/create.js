@@ -204,7 +204,7 @@ module.exports = async (req, res) => {
         user_id: userId,
         baby_profile_id: profile._id,
         theme_selected: theme.label,
-        output_image_urls: [],
+        output_image_url: null,
         payment_type,
         status: "completed",
       });
@@ -272,7 +272,7 @@ module.exports = async (req, res) => {
       baby_profile_id: profile._id,
       theme_id: theme._id,
       theme_selected: theme.label,
-      output_image_urls: outputImageUrl,
+      output_image_url: outputImageUrl,
       payment_type: payment_type === "paid" ? "paid" : "free",
       status: "completed",
     });

@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
 
     const filters = {
       user_id: toObjectIdOrNull(userId),
-      output_image_urls: { $exists: true, $ne: [] },
+      output_image_url: { $exists: true, $ne: null },
     };
 
     const profileObjectId = toObjectIdOrNull(profile_id);
@@ -105,8 +105,8 @@ module.exports = async (req, res) => {
             .lean();
         }
 
-        const outputImageUrl = generation.output_image_urls?.[0]
-          ? await toSignedStorageUrl(generation.output_image_urls[0])
+        const outputImageUrl = generation.output_image_url
+          ? await toSignedStorageUrl(generation.output_image_url)
           : null;
 
         const profileDetails = generation.baby_profile_id
