@@ -1,21 +1,17 @@
 // src/controllers/generation/utils.js
 
 const admin = require("../../config/firebase");
-const PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES = Number(
-  process.env.PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES || 60,
-);
+
 
 function buildFirebaseStorageObjectUrl(bucketName, cloudPath) {
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(cloudPath)}`;
 }
 
+const { getDownloadURL } = require("firebase-admin/storage");
+
 async function signCloudPath(bucket, cloudPath) {
-  const expiresAt = Date.now() + PRIVATE_IMAGE_SIGNED_URL_TTL_MINUTES * 60 * 1000;
-  const [signedUrl] = await bucket.file(cloudPath).getSignedUrl({
-    action: "read",
-    expires: expiresAt,
-  });
-  return signedUrl;
+  const file = bucket.file(cloudPath);
+  return await getDownloadURL(file);
 }
 
 async function toSignedStorageUrl(imageUrl) {
