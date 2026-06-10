@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Generation = require("../../models/Generation");
 const Theme = require("../../models/Theme");
-const { toSignedStorageUrl } = require("./utils");
+const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
 function toObjectIdOrNull(value) {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
@@ -105,14 +105,18 @@ module.exports = async (req, res) => {
             .lean();
         }
 
+        if (themeDetails?.image_url) {
+          themeDetails.image_url = await getFirebaseDownloadUrl(themeDetails.image_url);
+        }
+
         const outputImageUrl = generation.output_image_url
-          ? await toSignedStorageUrl(generation.output_image_url)
+          ? await getFirebaseDownloadUrl(generation.output_image_url)
           : null;
 
         const profileDetails = generation.baby_profile_id
           ? {
               _id: generation.baby_profile_id._id,
-              reference_image_url: await toSignedStorageUrl(
+              reference_image_url: await getFirebaseDownloadUrl(
                 generation.baby_profile_id.reference_image_url,
               ),
               identity_json: generation.baby_profile_id.identity_json,

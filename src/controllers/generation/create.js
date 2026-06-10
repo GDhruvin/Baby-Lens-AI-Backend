@@ -6,8 +6,8 @@ const admin = require("../../config/firebase");
 const BabyProfile = require("../../models/BabyProfile");
 const Theme = require("../../models/Theme");
 const Generation = require("../../models/Generation");
+const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 const {
-  toSignedStorageUrl,
   hasInvalidIdentity,
   buildFinalPrompt,
   extractGeneratedImages,
@@ -217,27 +217,31 @@ module.exports = async (req, res) => {
       });
     }
 
-    const normalizedReferenceImageUrl = await toSignedStorageUrl(
+    const normalizedReferenceImageUrl = await getFirebaseDownloadUrl(
       profile.reference_image_url,
     );
+
     const fetchController = new AbortController();
     const fetchTimeout = setTimeout(() => {
       fetchController.abort();
     }, EXTERNAL_REQUEST_TIMEOUT_MS);
+
     let referenceImageResponse;
     try {
       referenceImageResponse = await fetch(normalizedReferenceImageUrl, {
         signal: fetchController.signal,
       });
+    } catch (err) {
+      console.warn("Failed to fetch reference image:", err.message);
     } finally {
       clearTimeout(fetchTimeout);
     }
 
-    if (!referenceImageResponse.ok) {
+    if (!referenceImageResponse || !referenceImageResponse.ok) {
       return res.status(400).json({
         error_code: "REFERENCE_IMAGE_UNREADABLE",
-        message: "Failed to load reference baby image for generation",
-        reference_image_status: referenceImageResponse.status,
+        message: "Could not read baby profile image from storage",
+        reference_image_status: referenceImageResponse ? referenceImageResponse.status : "Fetch Failed",
         reference_image_url: normalizedReferenceImageUrl,
       });
     }
@@ -264,15 +268,15 @@ module.exports = async (req, res) => {
       userId,
       [generatedImage],
     );
-    const outputImageUrl = uploadedImages[0]?.signedUrl || null;
-    const outputImageStorageUrl = uploadedImages[0]?.storageObjectUrl || null;
+    const outputImageUrl = uploadedImages[0]?.downloadUrl || null;
+    const outputImageCloudPath = uploadedImages[0]?.cloudPath || null;
 
     const savedGeneration = await Generation.create({
       user_id: userId,
       baby_profile_id: profile._id,
       theme_id: theme._id,
       theme_selected: theme.label,
-      output_image_url: outputImageUrl,
+      output_image_url: outputImageCloudPath, // Store cloud path
       payment_type: payment_type === "paid" ? "paid" : "free",
       status: "completed",
     });

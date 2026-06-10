@@ -40,24 +40,14 @@ module.exports = async (req, res) => {
 
     const cloudFileName = `theme_gallery/${Date.now()}_${safeFilename}`;
 
-    const fileRef = bucket.file(cloudFileName);
-
-    await fileRef.save(file.buffer, {
-      metadata: {
-        contentType: file.mimetype,
-      },
-    });
-
-    const [imageUrl] = await fileRef.getSignedUrl({
-      action: "read",
-      expires: "01-01-2036", // Long lived URL
-    });
+    const { uploadBufferToFirebase } = require("../../utils/storageUtils");
+    const downloadUrl = await uploadBufferToFirebase(cloudFileName, file.buffer, file.mimetype);
 
     const newTheme = new Theme({
       label,
       category_id,
       description,
-      image_url: imageUrl,
+      image_url: cloudFileName, // Now stores cloud path
       prompt_template,
       badge: {
         label: badge_label || "",

@@ -3,44 +3,7 @@
 const admin = require("../../config/firebase");
 
 
-function buildFirebaseStorageObjectUrl(bucketName, cloudPath) {
-  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(cloudPath)}`;
-}
-
-const { getDownloadURL } = require("firebase-admin/storage");
-
-async function signCloudPath(bucket, cloudPath) {
-  const file = bucket.file(cloudPath);
-  return await getDownloadURL(file);
-}
-
-async function toSignedStorageUrl(imageUrl) {
-  if (!imageUrl) return imageUrl;
-
-  try {
-    const parsed = new URL(imageUrl);
-    const isFirebaseStorageHost =
-      parsed.hostname === "firebasestorage.googleapis.com";
-    const hasToken = parsed.searchParams.has("token");
-    const isAlreadySigned = parsed.searchParams.has("X-Goog-Signature");
-
-    if (!isFirebaseStorageHost || hasToken || isAlreadySigned) {
-      return imageUrl;
-    }
-
-    const encodedPath = parsed.pathname.split("/o/")[1];
-    if (!encodedPath) return imageUrl;
-
-    const cloudPath = decodeURIComponent(encodedPath.split("?")[0]);
-    const bucket = admin.storage().bucket();
-    const signedUrl = await signCloudPath(bucket, cloudPath);
-
-    return signedUrl || imageUrl;
-  } catch (error) {
-    console.warn("[Generations] Failed to normalize reference URL:", error.message);
-    return imageUrl;
-  }
-}
+// Removed deprecated storage URL functions
 
 function hasInvalidIdentity(identityJson) {
   const values = Object.values(identityJson || {}).map((value) =>
@@ -119,18 +82,19 @@ async function uploadGeneratedImages(bucket, userId, generatedImages) {
       .slice(2, 8)}.${extension}`;
     const fileRef = bucket.file(cloudFileName);
 
+    const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
+
     await fileRef.save(Buffer.from(image.data, "base64"), {
       metadata: {
         contentType: image.mimeType,
       },
     });
 
-    const signedUrl = await signCloudPath(bucket, cloudFileName);
-    const storageObjectUrl = buildFirebaseStorageObjectUrl(bucket.name, cloudFileName);
+    const downloadUrl = await getFirebaseDownloadUrl(cloudFileName);
 
     uploadedImages.push({
-      signedUrl,
-      storageObjectUrl,
+      downloadUrl,
+      cloudPath: cloudFileName,
     });
   }
 
@@ -138,9 +102,6 @@ async function uploadGeneratedImages(bucket, userId, generatedImages) {
 }
 
 module.exports = {
-  buildFirebaseStorageObjectUrl,
-  signCloudPath,
-  toSignedStorageUrl,
   hasInvalidIdentity,
   buildFinalPrompt,
   extractGeneratedImages,

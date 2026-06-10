@@ -2,7 +2,7 @@
 
 const Theme = require("../../models/Theme");
 const ThemeCategory = require("../../models/ThemeCategory");
-const { toSignedThemeImageUrl } = require("./utils");
+// Removed toSignedThemeImageUrl
 
 module.exports = async (req, res) => {
   try {
@@ -31,11 +31,13 @@ module.exports = async (req, res) => {
       }
     }
 
+    const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
+
     const themes = await Theme.find(filter).populate("category_id");
     const themesWithResolvedUrls = await Promise.all(
       themes.map(async (themeDoc) => {
         const themeObj = themeDoc.toObject();
-        themeObj.image_url = await toSignedThemeImageUrl(themeObj.image_url);
+        themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
         return themeObj;
       })
     );

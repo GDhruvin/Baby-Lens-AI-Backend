@@ -1,7 +1,7 @@
 // src/controllers/generation/list.js
 
 const Generation = require("../../models/Generation");
-const { toSignedStorageUrl } = require("./utils");
+const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
     const images = await Promise.all(
       generations.map(async (generation) => {
         const resolvedOutputUrl = generation.output_image_url
-          ? await toSignedStorageUrl(generation.output_image_url)
+          ? await getFirebaseDownloadUrl(generation.output_image_url)
           : null;
 
         generation.output_image_url = resolvedOutputUrl;

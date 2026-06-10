@@ -2,6 +2,10 @@
 
 const Theme = require("../../models/Theme");
 const admin = require("../../config/firebase");
+const {
+  deleteFromFirebase,
+  getFirebaseDownloadUrl,
+} = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -45,32 +49,19 @@ module.exports = async (req, res) => {
         metadata: { contentType: file.mimetype },
       });
 
-      const [imageUrl] = await fileRef.getSignedUrl({
-        action: "read",
-        expires: "01-01-2036",
-      });
-
-      updateData.image_url = imageUrl;
+      updateData.image_url = cloudFileName;
 
       // Optional: Delete old image from Firebase
-      try {
-        if (theme.image_url) {
-          const oldUrl = new URL(theme.image_url);
-          const oldPath = decodeURIComponent(
-            oldUrl.pathname.split("/o/")[1].split("?")[0]
-          );
-          await bucket.file(oldPath).delete();
-        }
-      } catch (err) {
-        console.error("Failed to delete old image:", err.message);
-      }
+      await deleteFromFirebase(theme.image_url);
     }
 
     theme = await Theme.findByIdAndUpdate(id, updateData, { new: true });
+    const themeObj = theme.toObject();
+    themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
 
     return res.status(200).json({
       message: "Theme updated successfully",
-      data: theme,
+      data: themeObj,
     });
   } catch (error) {
     return res.status(500).json({

@@ -1,7 +1,7 @@
 // src/controllers/theme/getSingle.js
 
 const Theme = require("../../models/Theme");
-const { toSignedThemeImageUrl } = require("./utils");
+const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
     }
 
     const themeObj = theme.toObject();
-    themeObj.image_url = await toSignedThemeImageUrl(themeObj.image_url);
+    themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
 
     return res.status(200).json({
       message: "Theme fetched successfully",

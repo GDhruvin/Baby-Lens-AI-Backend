@@ -8,6 +8,7 @@
 <h1>Create New Theme</h1>
 
 <form
+  id="themeForm"
   action="/api/themes/create"
   method="POST"
   enctype="multipart/form-data"
@@ -56,6 +57,42 @@
   </button>
 
 </form>
+
+<script>
+document.getElementById('themeForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const form = e.target;
+  const formData = new FormData(form);
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalBtnText = submitBtn.textContent;
+  
+  try {
+    submitBtn.textContent = 'Creating...';
+    submitBtn.disabled = true;
+    
+    const response = await fetch(form.action, {
+      method: form.method,
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Theme created successfully!');
+      form.reset();
+    } else {
+      alert('Error creating theme: ' + (result.message || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('An error occurred while creating the theme.');
+  } finally {
+    submitBtn.textContent = originalBtnText;
+    submitBtn.disabled = false;
+  }
+});
+</script>
 
 </body>
 </html>

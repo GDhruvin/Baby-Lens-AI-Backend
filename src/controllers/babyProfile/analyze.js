@@ -7,12 +7,10 @@ const {
   vertexModel,
   safeParseJson,
   validateBabyFaceDetected,
-  deleteUploadedImage,
-  buildFirebaseStorageObjectUrl,
-  signCloudPath,
   generateIdentityJson,
   mockIdentity
 } = require("./utils");
+const { deleteFromFirebase } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -35,22 +33,11 @@ module.exports = async (req, res) => {
     // FIREBASE STORAGE UPLOAD
     // ==================================================
 
-    const bucket = admin.storage().bucket();
-
     const safeFilename = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
-
     const cloudFileName = `baby_profiles/${userId}/${Date.now()}_${safeFilename}`;
 
-    const fileRef = bucket.file(cloudFileName);
-
-    await fileRef.save(file.buffer, {
-      metadata: {
-        contentType: file.mimetype,
-      },
-    });
-
-    const imageUrl = await signCloudPath(bucket, cloudFileName);
-    const storageObjectUrl = buildFirebaseStorageObjectUrl(bucket.name, cloudFileName);
+    const { uploadBufferToFirebase } = require("../../utils/storageUtils");
+    const imageUrl = await uploadBufferToFirebase(cloudFileName, file.buffer, file.mimetype);
 
     console.log("Image uploaded:", imageUrl);
 
@@ -106,7 +93,7 @@ module.exports = async (req, res) => {
 
         if (aiError.code === "NO_BABY_FACE_DETECTED") {
           // Remove invalid uploaded image from Firebase Storage
-          await deleteUploadedImage(bucket, cloudFileName);
+          await deleteFromFirebase(cloudFileName);
 
           return res.status(400).json({
             message:
@@ -127,7 +114,7 @@ module.exports = async (req, res) => {
 
     const newProfile = new BabyProfile({
       user_id: userId,
-      reference_image_url: storageObjectUrl,
+      reference_image_url: cloudFileName, // Now strictly stores cloud_path
       identity_json: identityJson,
     });
 

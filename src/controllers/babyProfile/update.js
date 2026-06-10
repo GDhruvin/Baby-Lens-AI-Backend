@@ -1,4 +1,5 @@
 const BabyProfile = require("../../models/BabyProfile");
+const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -38,9 +39,12 @@ module.exports = async (req, res) => {
       await profile.save();
     }
 
+    const profileObj = profile.toObject();
+    profileObj.reference_image_url = await getFirebaseDownloadUrl(profileObj.reference_image_url);
+
     return res.status(200).json({
       message: "Baby profile updated successfully",
-      profile
+      profile: profileObj
     });
   } catch (error) {
     console.error("Update Profile Error:", error);

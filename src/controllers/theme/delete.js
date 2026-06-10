@@ -1,7 +1,7 @@
 // src/controllers/theme/delete.js
 
 const Theme = require("../../models/Theme");
-const admin = require("../../config/firebase");
+const { deleteFromFirebase } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -12,19 +12,7 @@ module.exports = async (req, res) => {
       return res.status(404).json({ message: "Theme not found" });
     }
 
-    // Delete image from Firebase
-    try {
-      if (theme.image_url) {
-        const bucket = admin.storage().bucket();
-        const url = new URL(theme.image_url);
-        const path = decodeURIComponent(
-          url.pathname.split("/o/")[1].split("?")[0]
-        );
-        await bucket.file(path).delete();
-      }
-    } catch (err) {
-      console.error("Failed to delete image from Firebase:", err.message);
-    }
+    await deleteFromFirebase(theme.image_url);
 
     await Theme.findByIdAndDelete(id);
 

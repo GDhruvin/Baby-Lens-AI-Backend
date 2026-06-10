@@ -2,7 +2,7 @@
 
 const admin = require("../../config/firebase");
 const BabyProfile = require("../../models/BabyProfile");
-const { deleteUploadedImage } = require("./utils");
+// Removed unused deleteUploadedImage
 
 module.exports = async (req, res) => {
   try {
@@ -23,23 +23,10 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Delete from Firebase Storage if URL exists
+    // Delete from Firebase Storage if URL/path exists
     if (profile.reference_image_url) {
-      try {
-        const bucket = admin.storage().bucket();
-        const url = new URL(profile.reference_image_url);
-        const isFirebaseStorageHost = url.hostname === "firebasestorage.googleapis.com";
-        
-        if (isFirebaseStorageHost) {
-          const encodedPath = url.pathname.split("/o/")[1];
-          if (encodedPath) {
-            const cloudPath = decodeURIComponent(encodedPath.split("?")[0]);
-            await deleteUploadedImage(bucket, cloudPath);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to parse image URL for deletion:", err.message);
-      }
+      const { deleteFromFirebase } = require("../../utils/storageUtils");
+      await deleteFromFirebase(profile.reference_image_url);
     }
 
     await BabyProfile.findByIdAndDelete(id);

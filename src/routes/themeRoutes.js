@@ -41,10 +41,10 @@ const upload = multer({
 });
 
 /**
- * GET /api/themes/add-page
+ * GET /api/themes/create
  * Render the create theme HTML page
  */
-router.get("/add-page", renderCreateThemePage);
+router.get("/create", renderCreateThemePage);
 
 /**
  * POST /api/themes/create

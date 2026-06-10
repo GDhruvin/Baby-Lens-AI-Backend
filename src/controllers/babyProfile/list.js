@@ -1,7 +1,7 @@
 // src/controllers/babyProfile/list.js
 
 const BabyProfile = require("../../models/BabyProfile");
-const { toSignedStorageUrl } = require("./utils");
+const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     const profilesWithResolvedUrls = await Promise.all(
       profiles.map(async (profile) => ({
         ...profile,
-        reference_image_url: await toSignedStorageUrl(profile.reference_image_url),
+        reference_image_url: await getFirebaseDownloadUrl(profile.reference_image_url),
       })),
     );
 
