@@ -18,15 +18,12 @@ module.exports = async (req, res) => {
       payment_type,
       date_from,
       date_to,
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       sort_by = "created_at",
       sort_order = "desc",
+      count,
     } = req.query;
-
-    const parsedPage = Math.max(1, Number(page) || 1);
-    const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 20));
-    const skip = (parsedPage - 1) * parsedLimit;
 
     const filters = {
       user_id: toObjectIdOrNull(userId),
@@ -84,12 +81,24 @@ module.exports = async (req, res) => {
       : "created_at";
     const finalSortOrder = String(sort_order).toLowerCase() === "asc" ? 1 : -1;
 
+    const query = Generation.find(filters).sort({ [finalSortBy]: finalSortOrder });
+
+    let parsedPage = null;
+    let parsedLimit = null;
+
+    if (count !== undefined) {
+      const parsedCount = Math.max(1, Number(count) || 5);
+      query.limit(parsedCount);
+    } else if (page !== undefined || limit !== undefined) {
+      parsedPage = Math.max(1, Number(page) || 1);
+      parsedLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+      const skip = (parsedPage - 1) * parsedLimit;
+      query.skip(skip).limit(parsedLimit);
+    }
+
     const [total, generations] = await Promise.all([
       Generation.countDocuments(filters),
-      Generation.find(filters)
-        .sort({ [finalSortBy]: finalSortOrder })
-        .skip(skip)
-        .limit(parsedLimit)
+      query
         .populate("baby_profile_id", "_id reference_image_url identity_json created_at updated_at")
         .populate("theme_id", "_id label description image_url badge is_active category_id createdAt updatedAt")
         .lean(),
@@ -144,7 +153,7 @@ module.exports = async (req, res) => {
         page: parsedPage,
         limit: parsedLimit,
         total,
-        total_pages: Math.ceil(total / parsedLimit),
+        total_pages: parsedLimit ? Math.ceil(total / parsedLimit) : 1,
       },
       filters: {
         profile_id: profile_id || null,
