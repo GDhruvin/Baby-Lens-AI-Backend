@@ -33,11 +33,17 @@ module.exports = async (req, res) => {
 
     const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
-    const themes = await Theme.find(filter).populate("category_id");
+        const themes = await Theme.find(filter).populate("category_id");
     const themesWithResolvedUrls = await Promise.all(
       themes.map(async (themeDoc) => {
         const themeObj = themeDoc.toObject();
         themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
+        
+        // Resolve previews to download URLs
+        themeObj.preview_image_urls = await Promise.all(
+          (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
+        );
+        
         return themeObj;
       })
     );

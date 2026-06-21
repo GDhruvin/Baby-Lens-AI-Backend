@@ -18,6 +18,7 @@ module.exports = async (req, res) => {
       badge_label,
       badge_type,
       is_active,
+      baby_angle_description,
     } = req.body;
 
     let theme = await Theme.findById(id);
@@ -25,6 +26,9 @@ module.exports = async (req, res) => {
     if (!theme) {
       return res.status(404).json({ message: "Theme not found" });
     }
+
+    const coverFile = req.files && req.files.image ? req.files.image[0] : null;
+    const previewFiles = req.files && req.files.previews ? req.files.previews : [];
 
     const updateData = {
       label: label || theme.label,
@@ -36,28 +40,50 @@ module.exports = async (req, res) => {
         type: badge_type !== undefined ? badge_type : theme.badge.type,
       },
       is_active: is_active !== undefined ? is_active : theme.is_active,
+      baby_angle_description: baby_angle_description !== undefined ? baby_angle_description : theme.baby_angle_description,
     };
 
-    if (req.file) {
-      const file = req.file;
-      const bucket = admin.storage().bucket();
-      const safeFilename = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+    const { uploadBufferToFirebase } = require("../../utils/storageUtils");
+
+    // Process new cover image if uploaded
+    if (coverFile) {
+      const safeFilename = coverFile.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
       const cloudFileName = `theme_gallery/${Date.now()}_${safeFilename}`;
-      const fileRef = bucket.file(cloudFileName);
-
-      await fileRef.save(file.buffer, {
-        metadata: { contentType: file.mimetype },
-      });
-
+      await uploadBufferToFirebase(cloudFileName, coverFile.buffer, coverFile.mimetype);
       updateData.image_url = cloudFileName;
 
-      // Optional: Delete old image from Firebase
+      // Delete old cover image from Firebase
       await deleteFromFirebase(theme.image_url);
+    }
+
+    // Process new previews if uploaded
+    if (previewFiles && previewFiles.length > 0) {
+      // Delete old preview images from Firebase Storage
+      if (theme.preview_image_urls && theme.preview_image_urls.length > 0) {
+        for (const oldPath of theme.preview_image_urls) {
+          await deleteFromFirebase(oldPath);
+        }
+      }
+
+      const previewCloudPaths = [];
+      for (let i = 0; i < previewFiles.length; i++) {
+        const pFile = previewFiles[i];
+        const safePFilename = pFile.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+        const cloudPName = `theme_gallery/${Date.now()}_preview_${i}_${safePFilename}`;
+        await uploadBufferToFirebase(cloudPName, pFile.buffer, pFile.mimetype);
+        previewCloudPaths.push(cloudPName);
+      }
+      updateData.preview_image_urls = previewCloudPaths;
     }
 
     theme = await Theme.findByIdAndUpdate(id, updateData, { new: true });
     const themeObj = theme.toObject();
     themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
+    
+    // Resolve preview URLs
+    themeObj.preview_image_urls = await Promise.all(
+      (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
+    );
 
     return res.status(200).json({
       message: "Theme updated successfully",

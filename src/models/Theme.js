@@ -52,6 +52,22 @@ const themeSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    preview_image_urls: {
+      type: [String],
+      default: [],
+    },
+
+    baby_angle_description: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    generation_count: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

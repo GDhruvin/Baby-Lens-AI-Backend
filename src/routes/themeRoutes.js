@@ -10,6 +10,7 @@ const getAllThemes = require("../controllers/theme/getAll");
 const getSingleTheme = require("../controllers/theme/getSingle");
 const updateTheme = require("../controllers/theme/update");
 const deleteTheme = require("../controllers/theme/delete");
+const getTrendingThemes = require("../controllers/theme/getTrending");
 
 const { requireAuth } = require("../middlewares/authMiddleware");
 
@@ -59,13 +60,26 @@ router.get("/create", renderCreateThemePage);
  * - badge_type (optional)
  * - image (required)
  */
-router.post("/create", upload.single("image"), createTheme);
+router.post(
+  "/create",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "previews", maxCount: 4 },
+  ]),
+  createTheme
+);
 
 /**
  * GET /api/themes
  * Get all themes
  */
 router.get("/", getAllThemes);
+
+/**
+ * GET /api/themes/trending
+ * Get trending themes
+ */
+router.get("/trending", getTrendingThemes);
 
 /**
  * GET /api/themes/:id
@@ -77,7 +91,14 @@ router.get("/:id", getSingleTheme);
  * PUT /api/themes/:id
  * Update theme
  */
-router.put("/:id", upload.single("image"), updateTheme);
+router.put(
+  "/:id",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "previews", maxCount: 4 },
+  ]),
+  updateTheme
+);
 
 /**
  * DELETE /api/themes/:id

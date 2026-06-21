@@ -209,6 +209,9 @@ module.exports = async (req, res) => {
         status: "completed",
       });
 
+      // Increment theme generation count
+      await Theme.findByIdAndUpdate(theme._id, { $inc: { generation_count: 1 } });
+
       return res.status(200).json({
         message: "Mock mode enabled. Prompt prepared successfully.",
         generation_id: mockGeneration._id,
@@ -280,6 +283,9 @@ module.exports = async (req, res) => {
       payment_type: payment_type === "paid" ? "paid" : "free",
       status: "completed",
     });
+
+    // Increment theme generation count
+    await Theme.findByIdAndUpdate(theme._id, { $inc: { generation_count: 1 } });
 
     return res.status(200).json({
       message: "Image generated successfully",

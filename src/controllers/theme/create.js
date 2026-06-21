@@ -13,13 +13,15 @@ module.exports = async (req, res) => {
       prompt_template,
       badge_label,
       badge_type,
+      baby_angle_description,
     } = req.body;
 
-    const file = req.file;
+    const coverFile = req.files && req.files.image ? req.files.image[0] : null;
+    const previewFiles = req.files && req.files.previews ? req.files.previews : [];
 
-    if (!file) {
+    if (!coverFile) {
       return res.status(400).json({
-        message: "Theme image is required",
+        message: "Theme image (cover) is required",
       });
     }
 
@@ -31,28 +33,37 @@ module.exports = async (req, res) => {
       });
     }
 
-    const bucket = admin.storage().bucket();
-
-    const safeFilename = file.originalname.replace(
-      /[^a-zA-Z0-9.]/g,
-      "_"
-    );
-
-    const cloudFileName = `theme_gallery/${Date.now()}_${safeFilename}`;
-
     const { uploadBufferToFirebase } = require("../../utils/storageUtils");
-    const downloadUrl = await uploadBufferToFirebase(cloudFileName, file.buffer, file.mimetype);
+
+    // Upload Cover Image
+    const safeCoverFilename = coverFile.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+    const cloudCoverName = `theme_gallery/${Date.now()}_${safeCoverFilename}`;
+    await uploadBufferToFirebase(cloudCoverName, coverFile.buffer, coverFile.mimetype);
+
+    // Upload Preview Images
+    const previewCloudPaths = [];
+    if (previewFiles && previewFiles.length > 0) {
+      for (let i = 0; i < previewFiles.length; i++) {
+        const pFile = previewFiles[i];
+        const safePFilename = pFile.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+        const cloudPName = `theme_gallery/${Date.now()}_preview_${i}_${safePFilename}`;
+        await uploadBufferToFirebase(cloudPName, pFile.buffer, pFile.mimetype);
+        previewCloudPaths.push(cloudPName);
+      }
+    }
 
     const newTheme = new Theme({
       label,
       category_id,
       description,
-      image_url: cloudFileName, // Now stores cloud path
+      image_url: cloudCoverName,
       prompt_template,
       badge: {
         label: badge_label || "",
         type: badge_type || "",
       },
+      preview_image_urls: previewCloudPaths,
+      baby_angle_description: baby_angle_description || "",
     });
 
     await newTheme.save();

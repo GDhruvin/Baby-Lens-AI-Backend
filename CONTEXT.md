@@ -70,7 +70,7 @@ backend/
 │   │   ├── User.js                    # auth_uid, name, email, credits
 │   │   ├── BabyProfile.js            # user_id → ref image + identity_json
 │   │   ├── Generation.js             # user_id + profile + theme → output
-│   │   ├── Theme.js                   # label, category_id, prompt_template
+│   │   ├── Theme.js                   # label, category_id, prompt_template, preview_image_urls, baby_angle_description, generation_count
 │   │   ├── ThemeCategory.js           # name, slug, sort_order
 │   │   └── Device.js                  # device_id → linked_users (abuse prevention)
 │   │
@@ -89,11 +89,12 @@ backend/
 │   │   │   ├── myPhotos.js           # GET user's generated photos
 │   │   │   └── utils.js              # Prompt builder, image extraction, upload
 │   │   └── theme/
-│   │       ├── create.js             # Admin: create theme with image
+│   │       ├── create.js             # Admin: create theme with cover & previews
 │   │       ├── getAll.js             # GET all themes (grouped by category)
 │   │       ├── getSingle.js          # GET single theme
-│   │       ├── update.js             # PUT theme
-│   │       ├── delete.js             # DELETE theme
+│   │       ├── update.js             # PUT theme (with previews)
+│   │       ├── delete.js             # DELETE theme (cleans up Firebase assets)
+│   │       ├── getTrending.js        # GET trending themes sorted by usage count
 │   │       ├── render.js             # EJS admin page
 │   │       └── utils.js              # Theme validation helpers
 │   │
@@ -235,7 +236,6 @@ exports.requireAuth = async (req, res, next) => {
 
 ### 5.1 — Base URL Structure
 
-```
 /api/{resource-group}/{action}
 
 Examples:
@@ -246,6 +246,7 @@ Examples:
   POST   /api/generations/create
   GET    /api/generations/my-photos
   GET    /api/themes
+  GET    /api/themes/trending
   POST   /api/themes/create
 ```
 

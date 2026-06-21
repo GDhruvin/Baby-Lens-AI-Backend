@@ -1,5 +1,8 @@
 require("dotenv").config();
 const path = require('path');
+const express = require("express");
+const cors = require("cors");
+const connectDB = require("./src/config/db");
 
 // Some local setups inject a dead proxy (127.0.0.1:9), which breaks Google OAuth token exchange.
 // If that value is detected, disable proxy env vars for this process.
@@ -15,10 +18,6 @@ for (const key of proxyEnvKeys) {
 if (process.env.GOOGLE_APPLICATION_CREDENTIALS && !path.isAbsolute(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
   process.env.GOOGLE_APPLICATION_CREDENTIALS = path.resolve(process.cwd(), process.env.GOOGLE_APPLICATION_CREDENTIALS);
 }
-
-const express = require("express");
-const cors = require("cors");
-const connectDB = require("./src/config/db");
 
 // Connect to MongoDB
 connectDB();
@@ -38,7 +37,6 @@ app.use("/api/baby-profiles", require("./src/routes/babyProfileRoutes"));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/themes", require("./src/routes/themeRoutes"));
 app.use("/api/generations", require("./src/routes/generationRoutes"));
-
 
 // Simple Health Check Route
 app.get("/", (req, res) => {

@@ -14,6 +14,11 @@ module.exports = async (req, res) => {
 
     const themeObj = theme.toObject();
     themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
+    
+    // Resolve previews to download URLs
+    themeObj.preview_image_urls = await Promise.all(
+      (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
+    );
 
     return res.status(200).json({
       message: "Theme fetched successfully",
