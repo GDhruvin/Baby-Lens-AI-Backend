@@ -5,14 +5,32 @@ const { getFirebaseDownloadUrl } = require("../../utils/storageUtils");
 
 module.exports = async (req, res) => {
   try {
-    // Fetch top 4 themes sorted by generation_count in descending order
-    const themes = await Theme.find({ is_active: true })
+    // Fetch active themes with badge type "trending"
+    const trendingBadgeThemes = await Theme.find({
+      is_active: true,
+      "badge.type": "trending",
+    }).populate("category_id");
+
+    // Fetch top 5 active themes sorted by generation_count in descending order
+    const topGenerationThemes = await Theme.find({ is_active: true })
       .sort({ generation_count: -1 })
-      .limit(4)
+      .limit(5)
       .populate("category_id");
 
+    // Merge lists and deduplicate by _id
+    const seenIds = new Set();
+    const combinedThemes = [];
+
+    for (const themeDoc of [...trendingBadgeThemes, ...topGenerationThemes]) {
+      const idStr = themeDoc._id.toString();
+      if (!seenIds.has(idStr)) {
+        seenIds.add(idStr);
+        combinedThemes.push(themeDoc);
+      }
+    }
+
     const themesWithResolvedUrls = await Promise.all(
-      themes.map(async (themeDoc) => {
+      combinedThemes.map(async (themeDoc) => {
         const themeObj = themeDoc.toObject();
         themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
         
