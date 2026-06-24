@@ -23,6 +23,10 @@ const generationSchema = new mongoose.Schema(
 
     // Did they pay or use a free credit?
     payment_type: { type: String, enum: ["free", "paid"], required: true },
+    
+    // Is the final image unlocked (paid or free trial unlocked)?
+    is_unlocked: { type: Boolean, default: false },
+
     status: {
       type: String,
       enum: ["pending", "completed", "failed"],

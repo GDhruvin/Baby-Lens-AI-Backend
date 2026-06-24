@@ -14,6 +14,9 @@ const {
   uploadGeneratedImages
 } = require("./utils");
 
+const User = require("../../models/User");
+const Device = require("../../models/Device");
+
 const useRealGemini = process.env.USE_GEMINI_API === "true";
 const imageModel =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
@@ -143,7 +146,7 @@ module.exports = async (req, res) => {
     const payload = req.body?.data && typeof req.body.data === "object"
       ? req.body.data
       : req.body;
-    const { profile_id, theme_id, payment_type = "free" } = payload || {};
+    const { profile_id, theme_id } = payload || {};
 
     if (!profile_id || !theme_id) {
       return res.status(400).json({
@@ -196,6 +199,73 @@ module.exports = async (req, res) => {
       });
     }
 
+    // ==================================================
+    // CREDIT GATING & DEVICE ANTI-ABUSE
+    // ==================================================
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        error_code: "USER_NOT_FOUND",
+        message: "User profile not found in database",
+      });
+    }
+
+    let resolvedPaymentType = "free";
+    let isUnlocked = false;
+
+    if (user.paid_credits > 0) {
+      // Case A: User has paid credits, always consume paid credits first
+      resolvedPaymentType = "paid";
+      isUnlocked = true;
+    } else {
+      // Case B: User wants to claim free photoshoot
+      // 1. Check if the user themselves has already claimed the free photoshoot
+      if (user.free_generations_used > 0) {
+        return res.status(402).json({
+          error_code: "INSUFFICIENT_CREDITS",
+          message: "You have used your free photoshoot. Please purchase a photoshoot pack to continue.",
+        });
+      }
+
+      // 2. Anti-abuse: Check if any user account linked to the same physical device has already claimed the free photoshoot
+      const linkedDevices = await Device.find({ linked_users: userId });
+      if (linkedDevices && linkedDevices.length > 0) {
+        const allLinkedUserIds = [];
+        linkedDevices.forEach(d => {
+          if (d.linked_users) {
+            d.linked_users.forEach(uid => {
+              if (String(uid) !== String(userId)) {
+                allLinkedUserIds.push(uid);
+              }
+            });
+          }
+        });
+
+        if (allLinkedUserIds.length > 0) {
+          // Check if any of these users have free_generations_used > 0
+          const abuseFound = await User.exists({
+            _id: { $in: allLinkedUserIds },
+            free_generations_used: { $gt: 0 }
+          });
+
+          if (abuseFound) {
+            // Flag the current user's free trial as consumed to prevent future bypass attempts
+            user.free_generations_used = 1;
+            await user.save();
+
+            return res.status(403).json({
+              error_code: "DEVICE_FREE_TRIAL_LIMIT_EXCEEDED",
+              message: "A free photoshoot has already been claimed on this device. Please purchase a photoshoot pack.",
+            });
+          }
+        }
+      }
+
+      // If checks pass, this photoshoot is the free trial photoshoot
+      resolvedPaymentType = "free";
+      isUnlocked = false;
+    }
+
     const finalPrompt = buildFinalPrompt(theme.prompt_template, profile.identity_json);
     const bucket = admin.storage().bucket();
 
@@ -205,9 +275,18 @@ module.exports = async (req, res) => {
         baby_profile_id: profile._id,
         theme_selected: theme.label,
         output_image_url: null,
-        payment_type,
+        payment_type: resolvedPaymentType,
+        is_unlocked: isUnlocked,
         status: "completed",
       });
+
+      // Update user credits
+      if (resolvedPaymentType === "paid") {
+        user.paid_credits = Math.max(0, user.paid_credits - 1);
+      } else {
+        user.free_generations_used = 1;
+      }
+      await user.save();
 
       // Increment theme generation count
       await Theme.findByIdAndUpdate(theme._id, { $inc: { generation_count: 1 } });
@@ -217,6 +296,10 @@ module.exports = async (req, res) => {
         generation_id: mockGeneration._id,
         prompt_used: finalPrompt,
         output_image_url: null,
+        user_credits: {
+          free_generations_used: user.free_generations_used,
+          paid_credits: user.paid_credits,
+        },
       });
     }
 
@@ -280,9 +363,18 @@ module.exports = async (req, res) => {
       theme_id: theme._id,
       theme_selected: theme.label,
       output_image_url: outputImageCloudPath, // Store cloud path
-      payment_type: payment_type === "paid" ? "paid" : "free",
+      payment_type: resolvedPaymentType,
+      is_unlocked: isUnlocked,
       status: "completed",
     });
+
+    // Update user credits only on successful generation
+    if (resolvedPaymentType === "paid") {
+      user.paid_credits = Math.max(0, user.paid_credits - 1);
+    } else {
+      user.free_generations_used = 1;
+    }
+    await user.save();
 
     // Increment theme generation count
     await Theme.findByIdAndUpdate(theme._id, { $inc: { generation_count: 1 } });
@@ -293,6 +385,10 @@ module.exports = async (req, res) => {
       profile_id: profile._id,
       theme_id: theme._id,
       output_image_url: outputImageUrl,
+      user_credits: {
+        free_generations_used: user.free_generations_used,
+        paid_credits: user.paid_credits,
+      },
     });
   } catch (error) {
     console.error("Generate image error:", error);
