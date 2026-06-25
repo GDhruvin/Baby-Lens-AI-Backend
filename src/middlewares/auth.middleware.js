@@ -1,5 +1,5 @@
-const admin = require("../config/firebase");
-const User = require("../models/User");
+const userService = require("../services/user.service");
+const User = require("../models/user.model");
 
 exports.requireAuth = async (req, res, next) => {
   try {
@@ -11,8 +11,8 @@ exports.requireAuth = async (req, res, next) => {
 
     const idToken = authHeader.split("Bearer ")[1];
     
-    // Verify the Token with Firebase
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    // Verify the Token with Firebase using the service
+    const decodedToken = await userService.verifyFirebaseToken(idToken);
 
     // Find the user in our DB
     const user = await User.findOne({ auth_uid: decodedToken.uid });
