@@ -520,12 +520,15 @@ async function createGeneration({ userId, profile_id, theme_id }) {
   // Fetch updated user credits for response
   const updatedUser = await User.findById(userId);
 
+  const finalOutputUrl = outputImageUrl;
+
   return {
     isMock: false,
     generation_id: savedGeneration._id,
     profile_id: profile._id,
     theme_id: theme._id,
-    output_image_url: outputImageUrl,
+    output_image_url: finalOutputUrl,
+    is_unlocked: savedGeneration.is_unlocked,
     user_credits: {
       free_generations_used: updatedUser.free_generations_used,
       paid_credits: updatedUser.paid_credits,
@@ -559,6 +562,7 @@ async function listUploadedImages(userId) {
         theme_selected: generation.theme_selected,
         image_url: resolvedOutputUrl,
         payment_type: generation.payment_type,
+        is_unlocked: generation.is_unlocked,
         status: generation.status,
         created_at: generation.created_at,
         updated_at: generation.updated_at,
@@ -701,6 +705,7 @@ async function myPhotos({ userId, queryParams }) {
         generation_id: generation._id,
         output_image_url: outputImageUrl,
         payment_type: generation.payment_type,
+        is_unlocked: generation.is_unlocked,
         status: generation.status,
         created_at: generation.created_at,
         updated_at: generation.updated_at,

@@ -63,52 +63,36 @@ backend/
 ├── src/
 │   ├── config/
 │   │   ├── db.js                      # MongoDB connection (mongoose.connect)
-│   │   ├── firebase.js                # Firebase Admin SDK initialization
-│   │   └── firebase-service-account.json  # ⚠ SECRET — must be in .gitignore
+│   │   └── firebase.js                # Firebase Admin SDK initialization
 │   │
-│   ├── models/                        # Mongoose schemas
-│   │   ├── User.js                    # auth_uid, name, email, credits
-│   │   ├── BabyProfile.js            # user_id → ref image + identity_json
-│   │   ├── Generation.js             # user_id + profile + theme → output
-│   │   ├── Theme.js                   # label, category_id, prompt_template, preview_image_urls, baby_angle_description, generation_count
-│   │   ├── ThemeCategory.js           # name, slug, sort_order
-│   │   └── Device.js                  # device_id → linked_users (abuse prevention)
+│   ├── models/                        # Mongoose schemas (snake_case fields)
+│   │   ├── user.model.js              # auth_uid, name, email, credits
+│   │   ├── babyProfile.model.js       # user_id → ref image + identity_json
+│   │   ├── generation.model.js        # user_id + profile + theme → output + is_unlocked
+│   │   ├── theme.model.js             # label, prompt_template, generation_count
+│   │   ├── themeCategory.model.js     # name, slug, sort_order
+│   │   └── device.model.js            # device_id → linked_users (abuse prevention)
 │   │
-│   ├── controllers/                   # Business logic, grouped by domain
-│   │   ├── auth/
-│   │   │   └── login.js              # Firebase token verify → find/create user
-│   │   ├── babyProfile/
-│   │   │   ├── analyze.js            # Upload image → Gemini identity extraction
-│   │   │   ├── list.js               # GET user's baby profiles
-│   │   │   ├── update.js             # PATCH profile fields
-│   │   │   ├── delete.js             # DELETE profile + Firebase Storage cleanup
-│   │   │   └── utils.js              # Gemini prompt, validation, storage helpers
-│   │   ├── generation/
-│   │   │   ├── create.js             # Theme + profile → AI image generation
-│   │   │   ├── list.js               # GET uploaded images
-│   │   │   ├── myPhotos.js           # GET user's generated photos
-│   │   │   └── utils.js              # Prompt builder, image extraction, upload
-│   │   └── theme/
-│   │       ├── create.js             # Admin: create theme with cover & previews
-│   │       ├── getAll.js             # GET all themes (grouped by category)
-│   │       ├── getSingle.js          # GET single theme
-│   │       ├── update.js             # PUT theme (with previews)
-│   │       ├── delete.js             # DELETE theme (cleans up Firebase assets)
-│   │       ├── getTrending.js        # GET trending themes sorted by usage count
-│   │       ├── render.js             # EJS admin page
-│   │       └── utils.js              # Theme validation helpers
+│   ├── controllers/                   # Business logic (domain controller files)
+│   │   ├── user.controller.js         # Login & profiles
+│   │   ├── babyProfile.controller.js  # CRUD baby profiles & Gemini analysis
+│   │   ├── generation.controller.js   # Photoshoot generation, list, delete, and proxy
+│   │   └── theme.controller.js        # Theme admin & listing APIs
 │   │
 │   ├── middlewares/
-│   │   └── authMiddleware.js          # requireAuth: verify Firebase token, attach req.user
+│   │   └── auth.middleware.js         # requireAuth: verify Firebase token, attach req.user
 │   │
 │   ├── routes/                        # Express route definitions
-│   │   ├── authRoutes.js              # POST /api/auth/login
-│   │   ├── babyProfileRoutes.js       # /api/baby-profiles/*
-│   │   ├── generationRoutes.js        # /api/generations/*
-│   │   └── themeRoutes.js             # /api/themes/*
+│   │   ├── user.routes.js             # POST /api/auth/login, profile GET/PUT
+│   │   ├── babyProfile.routes.js      # /api/baby-profiles/*
+│   │   ├── generation.routes.js       # /api/generations/*
+│   │   └── theme.routes.js            # /api/themes/*
 │   │
-│   ├── services/                      # (Reserved) External service wrappers
-│   └── utils/                         # (Reserved) Shared utility functions
+│   ├── services/                      # Service wrappers
+│   │   └── watermark.service.js       # On-the-fly preview image watermarking (Jimp v1.x)
+│   │
+│   └── utils/                         # Shared utility functions
+│       └── storageUtils.js            # Firebase Storage download/delete helpers
 │
 ├── uploads/                           # Local upload temp directory
 └── views/                             # EJS templates (admin)
@@ -155,8 +139,8 @@ module.exports = async (req, res) => {
 - Always wrap in `try/catch`.
 - Always return `res.status(xxx).json({...})` — never leave hanging responses.
 - Use structured error codes: `{ error_code: 'SNAKE_UPPER_CASE', message: '...' }`.
-- Group related controllers in a subdirectory (e.g., `controllers/generation/`).
-- Extract reusable logic to a `utils.js` within the same controller group.
+- Define controllers in flat files directly in `src/controllers/` (e.g. `generation.controller.js`) and export route actions.
+- Extract reusable logic to services or utilities as needed.
 
 ### 4.3 — Route Pattern
 
@@ -165,10 +149,10 @@ Routes are thin — they only define HTTP method, path, middleware chain, and co
 ```js
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middlewares/authMiddleware');
-const create = require('../controllers/generation/create');
+const { requireAuth } = require('../middlewares/auth.middleware');
+const generationController = require('../controllers/generation.controller');
 
-router.post('/create', requireAuth, create);
+router.post('/create', requireAuth, generationController.create);
 
 module.exports = router;
 ```
@@ -729,7 +713,26 @@ This project uses Express v5 which has breaking changes from v4:
 
 ---
 
-## 18 · AI Agent Instructions
+## 18 · Credit Gating, Device Anti-Abuse, and Watermarking (Finalized Logic)
+
+To ensure monetization integrity and prevent trial fraud, the backend acts as the absolute authority for credit validation and watermarking.
+
+### 18.1 — Credit Gating & Payment Logic
+- **Paid Credits**: If `user.paid_credits > 0`, the backend consumes one paid credit, sets `payment_type = "paid"`, and marks the photoshoot as `is_unlocked = true` (delivering a pristine unwatermarked output image).
+- **Free Photoshoot**: If `user.paid_credits === 0`, the backend checks if `user.free_generations_used > 0`. If so, it immediately blocks the request with `INSUFFICIENT_CREDITS` (HTTP 402).
+- **Device Anti-Abuse**: During a free photoshoot attempt, the backend checks for physical device abuse via the `device_id` linkage:
+  - If any user linked to the same physical `device_id` has already consumed a free photoshoot (`free_generations_used > 0`), the new user's trial is flagged as consumed (`free_generations_used = 1`) and the request is blocked with `DEVICE_FREE_TRIAL_LIMIT_EXCEEDED` (HTTP 403).
+
+### 18.2 — Selective Watermarking on Download
+- **Original Asset Isolation**: The database and the API query endpoints (like `/my-photos`, `/create`, and `/uploaded-images`) always return the pristine Firebase Storage URL to the mobile client for high-quality, unwatermarked in-app rendering.
+- **Watermarked Download Gateway**: All image downloads are routed through the `/api/generations/photo/:id` proxy endpoint, protected by standard `requireAuth` middleware.
+  - If `is_unlocked === true`: The backend streams the original pristine high-resolution image buffer from Firebase Storage.
+  - If `is_unlocked === false` (locked free photoshoot): The backend downloads the original buffer, overlays a semi-transparent brand watermark ("BABYLENS STUDIO PREVIEW - PURCHASE TO UNLOCK HD") on the fly using the pure JS `jimp` library, and streams the watermarked JPEG buffer back to the client.
+- **Security Guarantee**: Because the raw Firebase Storage URL is never exposed to the client for locked photos, users cannot bypass the watermark.
+
+---
+
+## 19 · AI Agent Instructions
 
 When working on this codebase as an AI coding assistant:
 
@@ -744,12 +747,12 @@ When working on this codebase as an AI coding assistant:
 9. **Never log sensitive data** (tokens, images, personal info).
 10. **Test with mock mode** (`USE_GEMINI_API=false`) to avoid billing.
 11. **Add TODO comments** for production improvements, prefixed with `// TODO:`.
-12. **Keep controllers single-purpose** — one action per file.
+12. **Keep controllers flat** — do not introduce nested subdirectories.
 13. **Keep route files thin** — no business logic.
 14. **Use `Promise.all`** for independent concurrent database calls.
 15. **Add indexes** for new query patterns.
 
 ---
 
-*Last updated: 2026-06-07*
+*Last updated: 2026-06-27*
 *Maintainer: BabyLens Engineering Team*

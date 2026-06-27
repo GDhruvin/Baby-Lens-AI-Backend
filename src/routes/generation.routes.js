@@ -15,4 +15,7 @@ router.get("/my-photos", requireAuth, generationController.myPhotos);
 // DELETE /api/generations/:id (Deletes photoshoot photo and cloud assets)
 router.delete("/:id", requireAuth, generationController.deleteGeneration);
 
+// GET /api/generations/photo/:id (Dynamically serves watermarked or pristine photos)
+router.get("/photo/:id", requireAuth, generationController.photo);
+
 module.exports = router;

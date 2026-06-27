@@ -1,4 +1,8 @@
 const generationService = require("../services/generation.service");
+const admin = require("../config/firebase");
+const Generation = require("../models/generation.model");
+const User = require("../models/user.model");
+const { applyWatermark } = require("../services/watermark.service");
 
 /**
  * Trigger AI photoshoot image generation
@@ -91,9 +95,78 @@ async function deleteGeneration(req, res, next) {
   }
 }
 
+/**
+ * Dynamically serve photoshoot images.
+ * Protected by requireAuth middleware.
+ * If the photoshoot is locked, overlays a brand watermark on the fly before streaming.
+ */
+async function photo(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // 1. Fetch the generation record from MongoDB
+    const generation = await Generation.findById(id);
+    if (!generation) {
+      return res.status(404).json({
+        error_code: "GENERATION_NOT_FOUND",
+        message: "Photoshoot not found",
+      });
+    }
+
+    // 2. Verify ownership
+    if (String(generation.user_id) !== String(userId)) {
+      return res.status(403).json({
+        error_code: "UNAUTHORIZED_ACCESS",
+        message: "You do not have permission to access this photo",
+      });
+    }
+
+    if (!generation.output_image_url) {
+      return res.status(400).json({
+        error_code: "IMAGE_NOT_GENERATED_YET",
+        message: "This photoshoot does not have a generated output image",
+      });
+    }
+
+    // 3. Download the original image from Firebase Storage into memory
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(generation.output_image_url);
+    const [exists] = await file.exists();
+
+    if (!exists) {
+      return res.status(404).json({
+        error_code: "FILE_NOT_FOUND_IN_STORAGE",
+        message: "Original image file could not be found in storage",
+      });
+    }
+
+    console.log(`[photoController] Downloading original image from Firebase: ${generation.output_image_url}`);
+    const [originalBuffer] = await file.download();
+
+    // 4. Serve the image based on unlocked status
+    if (generation.is_unlocked === true) {
+      console.log(`[photoController] Serving pristine high-res photo for unlocked generation ${id}`);
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Cache-Control", "public, max-age=86400"); // Cache pristine images for 24 hours
+      return res.send(originalBuffer);
+    } else {
+      console.log(`[photoController] Applying watermark on the fly for locked generation ${id}`);
+      const watermarkedBuffer = await applyWatermark(originalBuffer);
+      
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private"); // Do not cache locked previews
+      return res.send(watermarkedBuffer);
+    }
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   create,
   list,
   myPhotos,
   deleteGeneration,
+  photo,
 };
