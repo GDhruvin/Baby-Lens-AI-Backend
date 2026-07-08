@@ -67,6 +67,7 @@ app.use("/api/baby-profiles", require("./src/routes/babyProfile.routes"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/themes", require("./src/routes/theme.routes"));
 app.use("/api/generations", require("./src/routes/generation.routes"));
+app.use("/api/payments", require("./src/routes/payment.routes"));
 
 // Simple Health Check Route
 app.get("/", (req, res) => {

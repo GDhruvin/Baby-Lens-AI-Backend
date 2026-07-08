@@ -71,13 +71,15 @@ backend/
 │   │   ├── generation.model.js        # user_id + profile + theme → output + is_unlocked
 │   │   ├── theme.model.js             # label, prompt_template, generation_count
 │   │   ├── themeCategory.model.js     # name, slug, sort_order
-│   │   └── device.model.js            # device_id → linked_users (abuse prevention)
+│   │   ├── device.model.js            # device_id → linked_users (abuse prevention)
+│   │   └── purchase.model.js          # user_id + email + package_id + price_paid + transaction_id
 │   │
 │   ├── controllers/                   # Business logic (domain controller files)
 │   │   ├── user.controller.js         # Login & profiles
 │   │   ├── babyProfile.controller.js  # CRUD baby profiles & Gemini analysis
 │   │   ├── generation.controller.js   # Photoshoot generation, list, delete, and proxy
-│   │   └── theme.controller.js        # Theme admin & listing APIs
+│   │   ├── theme.controller.js        # Theme admin & listing APIs
+│   │   └── payment.controller.js      # Mock checkout simulation & credit addition
 │   │
 │   ├── middlewares/
 │   │   └── auth.middleware.js         # requireAuth: verify Firebase token, attach req.user
@@ -86,7 +88,8 @@ backend/
 │   │   ├── user.routes.js             # POST /api/auth/login, profile GET/PUT
 │   │   ├── babyProfile.routes.js      # /api/baby-profiles/*
 │   │   ├── generation.routes.js       # /api/generations/*
-│   │   └── theme.routes.js            # /api/themes/*
+│   │   ├── theme.routes.js            # /api/themes/*
+│   │   └── payment.routes.js          # POST /api/payments/mock-purchase
 │   │
 │   ├── services/                      # Service wrappers
 │   │   └── watermark.service.js       # On-the-fly preview image watermarking (Jimp v1.x)
@@ -232,6 +235,7 @@ Examples:
   GET    /api/themes
   GET    /api/themes/trending
   POST   /api/themes/create
+  POST   /api/payments/mock-purchase
 ```
 
 ### 5.2 — Request/Response Contract
@@ -729,6 +733,14 @@ To ensure monetization integrity and prevent trial fraud, the backend acts as th
   - If `is_unlocked === true`: The backend streams the original pristine high-resolution image buffer from Firebase Storage.
   - If `is_unlocked === false` (locked free photoshoot): The backend downloads the original buffer, overlays a semi-transparent brand watermark ("BABYLENS STUDIO PREVIEW - PURCHASE TO UNLOCK HD") on the fly using the pure JS `jimp` library, and streams the watermarked JPEG buffer back to the client.
 - **Security Guarantee**: Because the raw Firebase Storage URL is never exposed to the client for locked photos, users cannot bypass the watermark.
+
+### 18.3 — Mock Purchase Logic
+- **Endpoint**: `POST /api/payments/mock-purchase`, protected by `requireAuth` middleware.
+- **Payload**: Expects `{ packageId }` in the request body, which must be one of: `single_shoot` (₹299, adds 1 credit), `starter_pack` (₹699, adds 3 credits), or `pro_pack` (₹999, adds 5 credits).
+- **Database Fulfillment Actions**:
+  - Automatically unlocks all previously locked photoshoots for the user (updates `is_unlocked = true` and `payment_type = "paid"` across all of the user's `Generation` records).
+  - Logs the checkout transaction details inside the `Purchase` database collection with status `"completed"` and a uniquely generated transaction ID.
+  - Increments the user's spendable `paid_credits` in the database.
 
 ---
 
