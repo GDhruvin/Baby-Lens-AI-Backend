@@ -1,8 +1,8 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 const connectDB = require("./src/config/db");
-const Theme = require("./src/models/Theme");
-const Generation = require("./src/models/Generation");
+const Theme = require("./src/models/theme.model");
+const Generation = require("./src/models/generation.model");
 const admin = require("./src/config/firebase");
 
 async function cleanup() {

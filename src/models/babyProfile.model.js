@@ -6,6 +6,7 @@ const babyProfileSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
     reference_image_url: {
       type: String,

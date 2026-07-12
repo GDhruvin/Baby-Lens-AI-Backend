@@ -6,15 +6,18 @@ const generationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
     baby_profile_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "BabyProfile",
       required: true,
+      index: true,
     },
     theme_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Theme",
+      index: true,
     },
     theme_selected: { type: String, required: true },
 
@@ -37,5 +40,7 @@ const generationSchema = new mongoose.Schema(
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   },
 );
+
+generationSchema.index({ user_id: 1, created_at: -1 });
 
 module.exports = mongoose.model("Generation", generationSchema);
