@@ -50,7 +50,11 @@ async function update(req, res, next) {
     const updateData = req.body;
     const userId = req.user.id;
 
-    const profile = await babyProfileService.updateBabyProfile({ userId, profileId: id, updateData });
+    const profile = await babyProfileService.updateBabyProfile({
+      userId,
+      profileId: id,
+      updateData,
+    });
 
     return res.status(200).json({
       message: "Baby profile updated successfully",
