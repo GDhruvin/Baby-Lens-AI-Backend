@@ -11,19 +11,18 @@ const useRealGemini = process.env.USE_GEMINI_API === "true";
 const vertexModel = process.env.VERTEX_MODEL || "gemini-2.5-flash";
 
 const systemPrompt = `
-You are an expert newborn facial identity extraction specialist.
+You are an expert newborn and infant facial identity extraction specialist.
 
-Analyze the attached baby image and extract ONLY the identity-critical facial attributes required for preserving the same baby's face in downstream AI photoshoot generation.
+Analyze the attached image and extract ONLY the identity-critical facial attributes required for preserving a baby's face in downstream AI photoshoot generation.
 
-Focus on:
-- age appearance
-- facial structure
-- face shape
-- cheeks / jaw softness
-- skin tone
-- skin texture
-- expression
-- baby-specific facial identity details
+CRITICAL VALIDATION RULES:
+1. SINGLE BABY FACE ONLY: The image MUST feature a SINGLE baby/infant face as the main subject. If multiple faces or a group photo is detected, set "face_lock": "multiple faces detected".
+2. BABY / INFANT ONLY: The subject MUST be a baby, infant, or toddler (0-3 years old). If the photo shows an adult, teenager, or older child, set "age_range": "not a baby - adult or older person detected".
+3. CLEAR FACE REQUIRED: If no clear face is visible, set "face_lock": "no baby face detected".
+4. REAL HUMAN BABY ONLY: If a doll, plush toy, drawing, illustration, artwork, or animal is shown, set "face_lock": "toy or non-human detected".
+5. CLEAR & UNOBSTRUCTED: If a pacifier, hand, cloth, mask, or blanket covers a major portion of the face, set "face_lock": "face obstructed by pacifier or hand".
+6. FRONT OR 3/4 ANGLED FACE VIEW ONLY (STRICT): Both eyes of the baby MUST be clearly visible. If the baby is shown in a full 90-degree side profile, side view, looking far sideways/upwards where only ONE eye is visible, or showing the back/side of the head, set "face_lock": "extreme face angle - side profile".
+7. IMAGE QUALITY & LIGHTING: If the image is severely blurry, out of focus, or pitch dark, set "texture_lock": "too blurry or dark".
 
 Return ONLY valid raw JSON.
 
@@ -92,6 +91,111 @@ function validateBabyFaceDetected(identityJson) {
     String(value).toLowerCase().trim()
   );
 
+  // 1. Group / Multiple Faces Check
+  const groupKeywords = [
+    "multiple faces",
+    "group photo",
+    "multiple people",
+    "more than one face",
+    "several faces",
+  ];
+  if (values.some((val) => groupKeywords.some((keyword) => val.includes(keyword)))) {
+    const error = new Error("Multiple faces detected. Please upload a photo focused on a single baby face.");
+    error.code = "MULTIPLE_FACES_DETECTED";
+    error.status = 400;
+    throw error;
+  }
+
+  // 2. Adult / Not a Baby Check
+  const adultKeywords = [
+    "adult",
+    "teenager",
+    "teen",
+    "older person",
+    "not a baby",
+    "elderly",
+    "grown up",
+  ];
+  if (values.some((val) => adultKeywords.some((keyword) => val.includes(keyword)))) {
+    const error = new Error("This image appears to show an adult or older person. Please upload a photo of a baby (0-3 years).");
+    error.code = "NOT_A_BABY";
+    error.status = 400;
+    throw error;
+  }
+
+  // 3. Toy / Doll / Illustration Check
+  const nonHumanKeywords = [
+    "toy or non-human",
+    "doll",
+    "teddy bear",
+    "plush",
+    "drawing",
+    "illustration",
+    "cartoon",
+    "anime",
+    "artwork",
+  ];
+  if (values.some((val) => nonHumanKeywords.some((keyword) => val.includes(keyword)))) {
+    const error = new Error("A real baby face was not detected (doll, toy, or drawing detected). Please upload a photo of a real baby.");
+    error.code = "NON_HUMAN_SUBJECT";
+    error.status = 400;
+    throw error;
+  }
+
+  // 4. Face Obstruction Check (Pacifier / Hand / Mask / Blanket)
+  const obstructionKeywords = [
+    "obstructed",
+    "pacifier",
+    "covered face",
+    "hand covering",
+    "blanket covering",
+    "mask covering",
+  ];
+  if (values.some((val) => obstructionKeywords.some((keyword) => val.includes(keyword)))) {
+    const error = new Error("The baby's face is partially covered (e.g. pacifier, hand, or blanket). Please upload an unobstructed photo.");
+    error.code = "FACE_OBSTRUCTED";
+    error.status = 400;
+    throw error;
+  }
+
+  // 5. Extreme Angle Check (Back of head / steep profile / side view)
+  const angleKeywords = [
+    "extreme face angle",
+    "side profile",
+    "side view",
+    "profile view",
+    "one eye visible",
+    "only one eye",
+    "turned sideways",
+    "turned away",
+    "back of head",
+    "looking sideways",
+    "looking upwards",
+    "side face",
+  ];
+  if (values.some((val) => angleKeywords.some((keyword) => val.includes(keyword)))) {
+    const error = new Error("The baby's face is turned too far away. Please upload a front-facing or slightly angled photo.");
+    error.code = "EXTREME_ANGLE";
+    error.status = 400;
+    throw error;
+  }
+
+  // 6. Severe Blur or Dark Image Check
+  const qualityKeywords = [
+    "too blurry or dark",
+    "severely blurry",
+    "pixelated",
+    "out of focus",
+    "pitch dark",
+  ];
+  if (values.some((val) => qualityKeywords.some((keyword) => val.includes(keyword)))) {
+    const error = new Error("The photo is too blurry, dark, or low quality. Please upload a clear, well-lit photo.");
+    error.code = "IMAGE_TOO_BLURRY";
+    error.status = 400;
+    throw error;
+  }
+
+  // 7. No Face Detected Check
   const invalidKeywords = [
     "no baby face detected",
     "no face detected",
@@ -101,12 +205,7 @@ function validateBabyFaceDetected(identityJson) {
     "cannot detect face",
     "no visible face",
   ];
-
-  const isInvalid = values.some((value) =>
-    invalidKeywords.some((keyword) => value.includes(keyword))
-  );
-
-  if (isInvalid) {
+  if (values.some((value) => invalidKeywords.some((keyword) => value.includes(keyword)))) {
     const error = new Error("No clear baby face detected in the uploaded image.");
     error.code = "NO_BABY_FACE_DETECTED";
     error.status = 400;
@@ -178,8 +277,16 @@ async function analyzeBabyProfile({ userId, file }) {
     } catch (aiError) {
       console.error("Vertex AI Error:", aiError);
       
-      // If error is about baby face detection, clean up the uploaded image
-      if (aiError.code === "NO_BABY_FACE_DETECTED") {
+      // If error is about face/age/group/quality validation, clean up the uploaded image
+      if (
+        aiError.code === "NO_BABY_FACE_DETECTED" ||
+        aiError.code === "MULTIPLE_FACES_DETECTED" ||
+        aiError.code === "NOT_A_BABY" ||
+        aiError.code === "NON_HUMAN_SUBJECT" ||
+        aiError.code === "FACE_OBSTRUCTED" ||
+        aiError.code === "EXTREME_ANGLE" ||
+        aiError.code === "IMAGE_TOO_BLURRY"
+      ) {
         await deleteFromFirebase(cloudFileName);
       }
       throw aiError;

@@ -21,10 +21,13 @@ connectDB();
 
 const app = express();
 
+const requestLogger = require("./src/middlewares/logger.middleware");
+
 // Basic Middleware
 app.use(helmet());
 app.use(compression());
 app.use(cors());
+app.use(requestLogger);
 
 // Global API rate limiter - 15 minutes window, max 100 requests per IP
 const apiLimiter = rateLimit({
