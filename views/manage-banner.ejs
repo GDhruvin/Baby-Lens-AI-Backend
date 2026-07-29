@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create New Theme</title>
+  <title>Manage Festival Special Banner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -40,7 +40,7 @@
 
     .container {
       width: 100%;
-      max-width: 680px;
+      max-width: 640px;
     }
 
     .header {
@@ -70,16 +70,7 @@
     }
 
     .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-row {
-      display: flex;
-      gap: 16px;
-    }
-
-    .form-row .form-group {
-      flex: 1;
+      margin-bottom: 22px;
     }
 
     .form-group label {
@@ -121,7 +112,7 @@
 
     .file-upload-box {
       border: 2px dashed #cbd5e1;
-      padding: 16px;
+      padding: 20px;
       border-radius: 12px;
       background: #f8fafc;
       text-align: center;
@@ -139,6 +130,14 @@
       font-size: 13px;
       color: var(--text-muted);
       cursor: pointer;
+    }
+
+    .image-preview {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--primary);
+      font-weight: 500;
+      word-break: break-all;
     }
 
     .checkbox-card {
@@ -237,84 +236,72 @@
   <!-- Floating Toast Notification -->
   <div id="toast" class="toast <%= (typeof success !== 'undefined' && success) ? 'show' : '' %>">
     <span id="toastIcon" class="toast-icon">✅</span>
-    <span id="toastMessage">Theme created successfully!</span>
+    <span id="toastMessage">Banner configuration saved successfully!</span>
   </div>
 
   <div class="container">
     <div class="header">
-      <h1>Create New Theme</h1>
-      <p>Add a new AI photoshoot theme to the BabyLens gallery</p>
+      <h1>Festival Special Banner</h1>
+      <p>Configure the active promotional banner shown in Explore Themes</p>
     </div>
 
     <div class="card">
-      <form id="themeForm" action="/api/themes/create" method="POST" enctype="multipart/form-data">
+      <form id="bannerForm" action="/api/themes/banner/update" method="POST" enctype="multipart/form-data">
         
-        <div class="form-row">
-          <div class="form-group">
-            <label>Theme Name *</label>
-            <input type="text" name="label" required placeholder="e.g., Royal King" />
-          </div>
-
-          <div class="form-group">
-            <label>Category *</label>
-            <select name="category_id" required>
-              <option value="">Select Category</option>
-              <% categories.forEach(category => { %>
-                <option value="<%= category._id %>">
-                  <%= category.name %>
-                </option>
-              <% }) %>
-            </select>
-          </div>
+        <div class="form-group">
+          <label>Target Theme *</label>
+          <select name="target_theme_id" id="themeSelect">
+            <option value="">-- Select Theme to Link --</option>
+            <% themes.forEach(theme => { %>
+              <option 
+                value="<%= theme._id %>" 
+                data-label="<%= theme.label %>"
+                <%= (banner && banner.target_theme_id && (banner.target_theme_id._id || banner.target_theme_id).toString() === theme._id.toString()) ? 'selected' : '' %>
+              >
+                <%= theme.label %> (<%= theme.category_id ? theme.category_id.name : 'No Category' %>)
+              </option>
+            <% }) %>
+          </select>
         </div>
 
         <div class="form-group">
-          <label>Description *</label>
-          <textarea name="description" required placeholder="Brief description of the photoshoot theme..."></textarea>
+          <label>Badge Label *</label>
+          <input type="text" id="inputLabel" name="label" value="<%= banner ? banner.label : '✦ LIMITED EDITION' %>" required />
         </div>
 
         <div class="form-group">
-          <label>Baby Photo Guidelines (Pose / Angle) *</label>
-          <textarea name="baby_angle_description" required placeholder="Describe pose requirements, e.g., baby facing forward, good lighting, neutral expression"></textarea>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Badge Label</label>
-            <input type="text" name="badge_label" placeholder="e.g., NEW / TRENDING / HOLIDAY" />
-          </div>
-
-          <div class="form-group">
-            <label>Badge Type</label>
-            <input type="text" name="badge_type" placeholder="e.g., new / trending / seasonal" />
-          </div>
+          <label>Banner Title *</label>
+          <input type="text" id="inputTitle" name="title" value="<%= banner ? banner.title : 'Festival Special' %>" required />
         </div>
 
         <div class="form-group">
-          <label>Cover Image *</label>
+          <label>Banner Description *</label>
+          <textarea id="inputDescription" name="description" required><%= banner ? banner.description : 'Stunning festive memories with our AI-powered theme collection.' %></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>CTA Button Text *</label>
+          <input type="text" id="inputCtaText" name="cta_text" value="<%= banner ? banner.cta_text : 'Try Now →' %>" required />
+        </div>
+
+        <div class="form-group">
+          <label>Custom Banner Image (Optional)</label>
           <div class="file-upload-box">
-            <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp" required />
+            <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp" />
           </div>
-        </div>
-
-        <div class="form-group">
-          <label>Sample Output Previews (1 to 4 images) *</label>
-          <div class="file-upload-box">
-            <input type="file" name="previews" accept=".jpg,.jpeg,.png,.webp" multiple required />
+          <div id="imagePreview" class="image-preview">
+            <% if (banner && banner.image_url) { %>
+              Active Image URL: <%= banner.image_url.substring(0, 55) %>...
+            <% } %>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label>Prompt Template *</label>
-          <textarea name="prompt_template" required placeholder="Raw AI JSON prompt template string..." style="height: 120px;"></textarea>
         </div>
 
         <div class="checkbox-card">
-          <label for="set_as_banner">Set as Active Festival Special Banner</label>
-          <input type="checkbox" id="set_as_banner" name="set_as_banner" value="true" />
+          <label for="is_active">Show Banner in App (Active)</label>
+          <input type="checkbox" id="is_active" name="is_active" value="true" <%= (!banner || banner.is_active) ? 'checked' : '' %> />
         </div>
 
-        <button type="submit" id="btnSubmit" class="btn-submit">Create Theme</button>
+        <button type="submit" id="btnSubmit" class="btn-submit">Save Banner Configuration</button>
 
       </form>
     </div>
@@ -325,7 +312,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('success') === 'true') {
         setTimeout(function() {
-          alert('Theme created successfully!');
+          alert('Banner configuration saved successfully!');
         }, 300);
         setTimeout(function() {
           const toast = document.getElementById('toast');

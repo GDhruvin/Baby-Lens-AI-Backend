@@ -24,6 +24,10 @@ async function createTheme(req, res, next) {
       files: req.files,
     });
 
+    if (req.accepts("html", "json") === "html" && !req.xhr) {
+      return res.redirect("/api/themes/create?success=true");
+    }
+
     return res.status(201).json({
       message: "Theme created successfully",
       data: newTheme,
@@ -127,6 +131,76 @@ async function deleteTheme(req, res, next) {
   }
 }
 
+/**
+ * Render the HTML page to manage the Festival Special Banner
+ */
+async function renderManageBannerPage(req, res, next) {
+  try {
+    const themes = await themeService.getAllThemes({});
+    const banner = await themeService.getActiveBanner();
+    const success = req.query.success === "true";
+    return res.render("manage-banner", {
+      themes,
+      banner,
+      success,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get active featured banner (renders HTML form in browser, JSON for mobile API)
+ */
+async function getActiveBanner(req, res, next) {
+  try {
+    const banner = await themeService.getActiveBanner();
+
+    // If requested via browser tab (HTML Accept header), render management form
+    if (req.accepts("html", "json") === "html") {
+      const themes = await themeService.getAllThemes({});
+      return res.render("manage-banner", {
+        themes,
+        banner,
+        success: req.query.success === "true",
+      });
+    }
+
+    // Return JSON payload for mobile API requests
+    return res.status(200).json({
+      message: "Banner retrieved successfully",
+      data: banner,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Update active featured banner
+ */
+async function updateBanner(req, res, next) {
+  try {
+    const file = req.files && req.files.image ? req.files.image[0] : req.file;
+    const banner = await themeService.updateBanner({
+      body: req.body,
+      file,
+    });
+
+    // Redirect back to management page with success flag for browser form submits
+    if (req.accepts("html", "json") === "html" && !req.xhr) {
+      return res.redirect("/api/themes/banner/manage?success=true");
+    }
+
+    return res.status(200).json({
+      message: "Banner configuration updated successfully",
+      data: banner,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   renderCreateThemePage,
   createTheme,
@@ -135,4 +209,7 @@ module.exports = {
   getSingleTheme,
   updateTheme,
   deleteTheme,
+  renderManageBannerPage,
+  getActiveBanner,
+  updateBanner,
 };

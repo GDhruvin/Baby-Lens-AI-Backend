@@ -40,6 +40,19 @@ router.post(
   themeController.createTheme
 );
 
+// GET /api/themes/banner/manage (Render the manage banner HTML page)
+router.get("/banner/manage", themeController.renderManageBannerPage);
+
+// GET /api/themes/banner (Get active featured banner JSON)
+router.get("/banner", themeController.getActiveBanner);
+
+// POST /api/themes/banner/update (Update active featured banner)
+router.post(
+  "/banner/update",
+  upload.single("image"),
+  themeController.updateBanner
+);
+
 // GET /api/themes (Get all active themes)
 router.get("/", themeController.getAllThemes);
 

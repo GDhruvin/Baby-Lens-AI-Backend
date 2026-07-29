@@ -1,5 +1,6 @@
 const Theme = require("../models/theme.model");
 const ThemeCategory = require("../models/themeCategory.model");
+const Banner = require("../models/banner.model");
 const {
   uploadBufferToFirebase,
   deleteFromFirebase,
@@ -25,6 +26,7 @@ async function createTheme({ body, files }) {
     badge_label,
     badge_type,
     baby_angle_description,
+    set_as_banner,
   } = body;
 
   const coverFile = files && files.image ? files.image[0] : null;
@@ -75,6 +77,31 @@ async function createTheme({ body, files }) {
   });
 
   await newTheme.save();
+
+  // Auto-set as active Banner if category is Festival or explicitly requested
+  const isFestivalCategory = (categoryExists.name || "").toLowerCase().includes("festival");
+  if (isFestivalCategory || set_as_banner === "true" || set_as_banner === true) {
+    let existingBanner = await Banner.findOne();
+    if (existingBanner) {
+      existingBanner.target_theme_id = newTheme._id;
+      existingBanner.target_category = categoryExists.name;
+      existingBanner.title = `${label}\nSpecial`;
+      existingBanner.label = badge_label || "✦ LIMITED EDITION";
+      existingBanner.is_active = true;
+      await existingBanner.save();
+    } else {
+      await Banner.create({
+        target_theme_id: newTheme._id,
+        target_category: categoryExists.name,
+        title: `${label}\nSpecial`,
+        label: badge_label || "✦ LIMITED EDITION",
+        description: description || "Stunning festive memories with our AI-powered theme collection.",
+        cta_text: "Try Now →",
+        is_active: true,
+      });
+    }
+  }
+
   return newTheme;
 }
 
@@ -290,6 +317,79 @@ async function deleteTheme(id) {
   return true;
 }
 
+/**
+ * Get active banner
+ */
+async function getActiveBanner() {
+  const banner = await Banner.findOne({ is_active: true }).populate({
+    path: "target_theme_id",
+    populate: { path: "category_id" },
+  });
+
+  if (!banner) return null;
+
+  const bannerObj = banner.toObject();
+
+  // Resolve target_theme_id image URLs to Firebase download URLs
+  if (bannerObj.target_theme_id) {
+    if (bannerObj.target_theme_id.image_url) {
+      bannerObj.target_theme_id.image_url = await getFirebaseDownloadUrl(
+        bannerObj.target_theme_id.image_url
+      );
+    }
+    if (bannerObj.target_theme_id.preview_image_urls) {
+      bannerObj.target_theme_id.preview_image_urls = await Promise.all(
+        bannerObj.target_theme_id.preview_image_urls.map((p) =>
+          getFirebaseDownloadUrl(p)
+        )
+      );
+    }
+  }
+
+  // Resolve image URL for banner
+  if (bannerObj.image_url) {
+    bannerObj.image_url = await getFirebaseDownloadUrl(bannerObj.image_url);
+  } else if (bannerObj.target_theme_id && bannerObj.target_theme_id.image_url) {
+    bannerObj.image_url = bannerObj.target_theme_id.image_url;
+  }
+
+  return bannerObj;
+}
+
+/**
+ * Update/Upsert Banner Configuration
+ */
+async function updateBanner({ body, file }) {
+  const { label, title, description, cta_text, target_theme_id, target_category, is_active } = body;
+
+  let banner = await Banner.findOne();
+  if (!banner) {
+    banner = new Banner({});
+  }
+
+  if (label !== undefined) banner.label = label;
+  if (title !== undefined) banner.title = title;
+  if (description !== undefined) banner.description = description;
+  if (cta_text !== undefined) banner.cta_text = cta_text;
+  if (target_theme_id !== undefined && target_theme_id !== "") banner.target_theme_id = target_theme_id;
+  if (target_category !== undefined) banner.target_category = target_category;
+  banner.is_active = is_active === "true" || is_active === true;
+
+  if (file) {
+    const safeFilename = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+    const cloudFileName = `theme_gallery/${Date.now()}_banner_${safeFilename}`;
+    await uploadBufferToFirebase(cloudFileName, file.buffer, file.mimetype);
+    
+    if (banner.image_url) {
+      await deleteFromFirebase(banner.image_url);
+    }
+    banner.image_url = cloudFileName;
+  }
+
+  await banner.save();
+  return await getActiveBanner();
+}
+
 module.exports = {
   getActiveCategories,
   createTheme,
@@ -298,4 +398,6 @@ module.exports = {
   getThemeById,
   updateTheme,
   deleteTheme,
+  getActiveBanner,
+  updateBanner,
 };
