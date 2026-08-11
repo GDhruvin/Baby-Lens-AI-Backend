@@ -37,6 +37,27 @@ const purchaseSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    order_id: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+    purchase_token: {
+      type: String,
+      index: true,
+    },
+    purchase_state: {
+      type: Number,
+      default: 0, // 0 = Purchased, 1 = Canceled, 2 = Pending
+    },
+    consumption_state: {
+      type: Number,
+      default: 0, // 0 = Unconsumed, 1 = Consumed
+    },
+    acknowledged: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

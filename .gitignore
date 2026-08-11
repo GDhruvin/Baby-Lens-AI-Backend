@@ -15,9 +15,11 @@ pnpm-lock.yaml
 .env.test
 .env.production
 
-# Firebase Admin Service Account Key
+# Firebase & Google Service Account Keys
 src/config/firebase-service-account.json
 firebase-service-account.json
+src/config/google-play-service-account.json
+google-play-service-account.json
 
 # ==========================================
 # Logs
