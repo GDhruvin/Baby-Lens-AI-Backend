@@ -16,7 +16,7 @@ const purchaseSchema = new mongoose.Schema(
     package_id: {
       type: String,
       required: true,
-      enum: ["single_shoot", "starter_pack", "pro_pack"],
+      enum: ["single_shoot", "starter_pack", "pro_pack", "babylens_photoshoot_1", "babylens_photoshoot_3", "babylens_photoshoot_5"],
     },
     price_paid: {
       type: Number,
