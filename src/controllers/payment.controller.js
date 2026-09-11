@@ -120,7 +120,145 @@ async function mockPurchase(req, res, next) {
   return verifyPurchase(req, res, next);
 }
 
+/**
+ * Render Admin Transactions Dashboard (EJS view) or return JSON API response
+ */
+async function renderTransactionsPage(req, res, next) {
+  try {
+    const {
+      search = "",
+      package_id = "",
+      status = "",
+      sort = "newest",
+      page = 1,
+      limit = 25,
+    } = req.query;
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 25;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter query
+    const filter = {};
+
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      filter.$or = [
+        { email: searchRegex },
+        { transaction_id: searchRegex },
+      ];
+    }
+
+    if (package_id && package_id.trim()) {
+      filter.package_id = package_id.trim();
+    }
+
+    if (status && status.trim()) {
+      filter.payment_status = status.trim();
+    }
+
+    // Determine sort order
+    let sortOptions = { created_at: -1 };
+    if (sort === "oldest") {
+      sortOptions = { created_at: 1 };
+    } else if (sort === "amount_high") {
+      sortOptions = { price_paid: -1, created_at: -1 };
+    } else if (sort === "amount_low") {
+      sortOptions = { price_paid: 1, created_at: -1 };
+    }
+
+    // Execute queries in parallel for high performance
+    const [transactions, totalCount, statsAggregate] = await Promise.all([
+      Purchase.find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Purchase.countDocuments(filter),
+      Purchase.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: {
+                $cond: [{ $eq: ["$payment_status", "completed"] }, "$price_paid", 0],
+              },
+            },
+            totalCreditsSold: {
+              $sum: {
+                $cond: [{ $eq: ["$payment_status", "completed"] }, "$credits_added", 0],
+              },
+            },
+            completedCount: {
+              $sum: {
+                $cond: [{ $eq: ["$payment_status", "completed"] }, 1, 0],
+              },
+            },
+            totalCount: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const stats = statsAggregate[0] || {
+      totalRevenue: 0,
+      totalCreditsSold: 0,
+      completedCount: 0,
+      totalCount: 0,
+    };
+
+    const totalPages = Math.ceil(totalCount / limitNum) || 1;
+    const successRate = stats.totalCount > 0 ? Math.round((stats.completedCount / stats.totalCount) * 100) : 100;
+
+    // Check if browser requested HTML or client requested JSON
+    const acceptHeader = req.headers.accept || "";
+    if (acceptHeader.includes("text/html") || req.query.format === "html") {
+      return res.render("transactions", {
+        transactions,
+        totalCount,
+        totalPages,
+        currentPage: pageNum,
+        limit: limitNum,
+        stats: {
+          totalRevenue: stats.totalRevenue,
+          totalCreditsSold: stats.totalCreditsSold,
+          completedCount: stats.completedCount,
+          totalCount: stats.totalCount,
+          successRate,
+        },
+        queryParams: {
+          search,
+          package_id,
+          status,
+          sort,
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        totalRevenue: stats.totalRevenue,
+        totalCreditsSold: stats.totalCreditsSold,
+        completedCount: stats.completedCount,
+        totalCount: stats.totalCount,
+        successRate,
+      },
+      pagination: {
+        totalCount,
+        totalPages,
+        currentPage: pageNum,
+        limit: limitNum,
+      },
+      transactions,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   verifyPurchase,
   mockPurchase,
+  renderTransactionsPage,
 };
