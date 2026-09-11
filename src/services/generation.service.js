@@ -7,6 +7,7 @@ const Generation = require("../models/generation.model");
 const User = require("../models/user.model");
 const Device = require("../models/device.model");
 const { getFirebaseDownloadUrl, deleteFromFirebase } = require("../utils/storageUtils");
+const notificationService = require("./notification.service");
 
 // Env variables for Gemini / Vertex AI
 const useRealGemini = process.env.USE_GEMINI_API === "true";
@@ -521,6 +522,18 @@ async function createGeneration({ userId, profile_id, theme_id }) {
   const updatedUser = await User.findById(userId);
 
   const finalOutputUrl = outputImageUrl;
+
+  // Dispatch background push notification (non-blocking)
+  notificationService
+    .notifyGenerationComplete({
+      userId,
+      generationId: savedGeneration._id,
+      themeLabel: theme.label,
+      imageUrl: finalOutputUrl,
+    })
+    .catch((pushErr) => {
+      console.warn("[GenerationService] Push notification dispatch failed:", pushErr?.message);
+    });
 
   return {
     isMock: false,

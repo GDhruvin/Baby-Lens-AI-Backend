@@ -54,6 +54,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/themes", require("./src/routes/theme.routes"));
 app.use("/api/generations", require("./src/routes/generation.routes"));
 app.use("/api/payments", require("./src/routes/payment.routes"));
+app.use("/api/notifications", require("./src/routes/notification.routes"));
 
 // Health Check Route with Active DB connectivity check
 app.get("/", healthCheck);

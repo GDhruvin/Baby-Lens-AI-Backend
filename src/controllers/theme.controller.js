@@ -1,4 +1,5 @@
 const themeService = require("../services/theme.service");
+const notificationService = require("../services/notification.service");
 
 /**
  * Renders the HTML page to create a new theme
@@ -23,6 +24,22 @@ async function createTheme(req, res, next) {
       body: req.body,
       files: req.files,
     });
+
+    const shouldNotify =
+      req.body.send_push_notification === "true" ||
+      req.body.send_push_notification === true ||
+      req.body.send_push_notification === "on";
+
+    if (shouldNotify) {
+      notificationService
+        .notifyNewTheme({
+          themeId: newTheme._id,
+          themeLabel: newTheme.label,
+        })
+        .catch((pushErr) => {
+          console.warn("[ThemeController] Push broadcast failed:", pushErr?.message);
+        });
+    }
 
     if (req.accepts("html", "json") === "html" && !req.xhr) {
       return res.redirect("/api/themes/create?success=true");
