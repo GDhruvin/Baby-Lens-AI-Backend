@@ -1,5 +1,6 @@
 const themeService = require("../services/theme.service");
 const notificationService = require("../services/notification.service");
+const { getFirebaseDownloadUrl } = require("../utils/storageUtils");
 
 /**
  * Renders the HTML page to create a new theme
@@ -31,10 +32,20 @@ async function createTheme(req, res, next) {
       req.body.send_push_notification === "on";
 
     if (shouldNotify) {
+      let previewImageUrl = null;
+      if (newTheme.image_url) {
+        try {
+          previewImageUrl = await getFirebaseDownloadUrl(newTheme.image_url);
+        } catch (urlErr) {
+          console.warn("[ThemeController] Failed to resolve firebase image URL for push:", urlErr?.message);
+        }
+      }
+
       notificationService
         .notifyNewTheme({
           themeId: newTheme._id,
           themeLabel: newTheme.label,
+          previewImageUrl,
         })
         .catch((pushErr) => {
           console.warn("[ThemeController] Push broadcast failed:", pushErr?.message);

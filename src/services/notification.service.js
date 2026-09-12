@@ -60,7 +60,10 @@ async function sendToTokens(tokens, { title, body, data = {}, imageUrl = null, c
       ...(imageUrl ? { imageUrl } : {}),
     },
     data: Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)])
+      Object.entries({
+        ...data,
+        ...(imageUrl ? { image_url: imageUrl, image: imageUrl } : {}),
+      }).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)])
     ),
     android: {
       priority: "high",
@@ -69,6 +72,7 @@ async function sendToTokens(tokens, { title, body, data = {}, imageUrl = null, c
         sound: "default",
         defaultVibrateTimings: true,
         priority: "high",
+        ...(imageUrl ? { imageUrl } : {}),
       },
     },
     apns: {
@@ -76,8 +80,10 @@ async function sendToTokens(tokens, { title, body, data = {}, imageUrl = null, c
         aps: {
           sound: "default",
           badge: 1,
+          "mutable-content": 1,
         },
       },
+      ...(imageUrl ? { fcmOptions: { image: imageUrl } } : {}),
     },
     tokens,
   };
@@ -142,7 +148,10 @@ async function sendToTopic(topic, { title, body, data = {}, imageUrl = null, cha
       ...(imageUrl ? { imageUrl } : {}),
     },
     data: Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)])
+      Object.entries({
+        ...data,
+        ...(imageUrl ? { image_url: imageUrl, image: imageUrl } : {}),
+      }).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)])
     ),
     android: {
       priority: "high",
@@ -150,14 +159,17 @@ async function sendToTopic(topic, { title, body, data = {}, imageUrl = null, cha
         channelId,
         sound: "default",
         priority: "high",
+        ...(imageUrl ? { imageUrl } : {}),
       },
     },
     apns: {
       payload: {
         aps: {
           sound: "default",
+          "mutable-content": 1,
         },
       },
+      ...(imageUrl ? { fcmOptions: { image: imageUrl } } : {}),
     },
   };
 
