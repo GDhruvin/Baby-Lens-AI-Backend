@@ -47,6 +47,7 @@ Rules:
 7. Focus only on the baby face
 8. Ignore background, clothes, accessories, toys, bedsheets, lighting
 9. For gender, you must output either "male" or "female". Do not use "neutral".
+10. For age_range, specify either "0-6 months infant" (for young infants under 6 months) or "6-24 months toddler" (for toddlers 6+ months).
 
 Example output:
 

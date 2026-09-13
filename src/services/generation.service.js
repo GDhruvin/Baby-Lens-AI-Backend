@@ -55,10 +55,51 @@ function buildFinalPrompt(themePromptTemplate, identityJson) {
   const identityBlock = JSON.stringify(identityJson, null, 2);
   let finalPrompt = themePromptTemplate || "";
 
+  // 1. Analyze Age & Posture Category from identityJson
+  const ageText = String(identityJson?.age_range || identityJson?.age_group || identityJson?.age || "").toLowerCase();
+  const genderText = String(identityJson?.gender || "").toLowerCase();
+
+  // Determine if baby is a Younger Infant (< 6m) vs Older Sitter (>= 6m)
+  const isInfant =
+    ageText.includes("0-6") ||
+    ageText.includes("0-5") ||
+    ageText.includes("0-4") ||
+    ageText.includes("0-3") ||
+    ageText.includes("infant") ||
+    ageText.includes("newborn") ||
+    (ageText.includes("month") && !ageText.includes("12") && !ageText.includes("18") && !ageText.includes("24")) ||
+    ageText.includes("lying");
+
+  let postureInstruction = "";
+  if (isInfant) {
+    postureInstruction = `
+AGE & POSTURE ADAPTATION (INFANT / < 6 MONTHS):
+- The baby is a young infant (under 6 months old) who lies down on their back or tummy.
+- CRITICAL POSTURE RULE: DO NOT force the baby into a sitting erect or standing posture.
+- The photoshoot pose MUST be a natural, comfortable lying, resting, or sleeping pose on a soft plush cushion, velvet rug, flower bed, or cradled in a basket/swing.
+- Use a top-down flat-lay or 45-degree overhead studio camera angle.
+- Place all theme props softly beside or around the baby rather than forcing the baby to grip them.`;
+  } else {
+    postureInstruction = `
+AGE & POSTURE ADAPTATION (TODDLER / SITTER >= 6 MONTHS):
+- The baby is an older infant or toddler (6+ months old) capable of sitting upright independently.
+- POSTURE RULE: The baby should be sitting erect or resting comfortably upright on a floor carpet, low stool, or chair.
+- Use an eye-level studio camera angle.
+- The baby can actively hold, touch, or interact with the theme props.`;
+  }
+
+  if (genderText === "male" || genderText === "boy") {
+    postureInstruction += `\n- GENDER STYLING: Male baby traditional attire and accessories.`;
+  } else if (genderText === "female" || genderText === "girl") {
+    postureInstruction += `\n- GENDER STYLING: Female baby traditional attire and accessories (e.g., floral crown/headband, lehenga/dress accents).`;
+  }
+
   if (finalPrompt.includes("{{identity_json}}")) {
-    finalPrompt = finalPrompt.replace("{{identity_json}}", identityBlock);
+    finalPrompt = finalPrompt.replace("{{identity_json}}", `${identityBlock}\n\n${postureInstruction}`);
   } else {
     finalPrompt = `${finalPrompt}
+
+${postureInstruction}
 
 Identity lock to preserve (must follow strictly):
 ${identityBlock}
