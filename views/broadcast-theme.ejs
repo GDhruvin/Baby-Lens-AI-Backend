@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broadcast Theme Push Notification — BabyLens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --focus-ring: rgba(99, 102, 241, 0.25);
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 660px;
+    }
+
+    .header {
+      margin-bottom: 28px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      border: 1px solid var(--border-color);
+    }
+
+    .form-group {
+      margin-bottom: 22px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group .hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-weight: 400;
+      text-transform: none;
+    }
+
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background-color: #f8fafc;
+      color: var(--text-main);
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    input[type="text"]:focus,
+    select:focus,
+    textarea:focus {
+      background-color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    .checkbox-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 24px;
+    }
+
+    .checkbox-card label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      margin-bottom: 0;
+      text-transform: none;
+    }
+
+    .checkbox-card input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff;
+      padding: 15px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-submit:hover {
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .preview-box {
+      background: #f1f5f9;
+      border-left: 4px solid var(--primary);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 22px;
+    }
+
+    .preview-box-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .preview-phone-card {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .preview-notif-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .preview-notif-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+
+    .preview-notif-body {
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.4;
+    }
+
+    /* Floating Toast Notification */
+    .toast {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      padding: 16px 22px;
+      border-radius: 12px;
+      background: #ffffff;
+      color: var(--text-main);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
+      border-left: 5px solid var(--success);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .admin-nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .nav-link:hover {
+      background: #ffffff;
+      color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .nav-link.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Toast Notification -->
+  <div id="toast" class="toast <%= (typeof success !== 'undefined' && success) ? 'show' : '' %>">
+    <span>✅</span>
+    <span>Push notification broadcast sent successfully to all parents!</span>
+  </div>
+
+  <div class="container">
+
+    <!-- Admin Navigation Header Tabs -->
+    <nav class="admin-nav">
+      <a href="/api/themes/create" class="nav-link">🎨 Create Theme</a>
+      <a href="/api/themes/banner/manage" class="nav-link">🚩 Festival Banner</a>
+      <a href="/api/themes/broadcast" class="nav-link active">📢 Push Broadcast</a>
+      <a href="/api/payments/transactions" class="nav-link">💳 Transactions</a>
+    </nav>
+
+    <div class="header">
+      <h1>Broadcast Theme Push Notification</h1>
+      <p>Send a festival or re-engagement push notification to all parents for any existing theme</p>
+    </div>
+
+    <div class="card">
+      <form id="broadcastForm" action="/api/themes/broadcast" method="POST">
+        
+        <div class="form-group">
+          <label for="themeSelect">Select Existing Theme *</label>
+          <select name="theme_id" id="themeSelect" required>
+            <option value="">-- Choose Theme (e.g. Janmashtami, Little Astronaut) --</option>
+            <% themes.forEach(theme => { %>
+              <option 
+                value="<%= theme._id %>" 
+                data-label="<%= theme.label %>"
+                data-category="<%= theme.category_id ? theme.category_id.name : '' %>"
+                data-desc="<%= theme.description %>"
+              >
+                <%= theme.label %> (<%= theme.category_id ? theme.category_id.name : 'General' %>)
+              </option>
+            <% }) %>
+          </select>
+          <span class="hint">When parents tap this notification on their phones, it opens this theme preview directly.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="inputTitle">Notification Title *</label>
+          <input 
+            type="text" 
+            id="inputTitle" 
+            name="notification_title" 
+            placeholder="e.g. 🦚 Celebrate Janmashtami with BabyLens!" 
+            required 
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="inputBody">Notification Message / Body *</label>
+          <textarea 
+            id="inputBody" 
+            name="notification_body" 
+            placeholder="e.g. Dress your little one as Little Krishna with our special Janmashtami theme. Tap to create!" 
+            required
+          ></textarea>
+        </div>
+
+        <!-- Live Notification Preview -->
+        <div class="preview-box">
+          <div class="preview-box-title">📱 Live Parent Lock-Screen Preview</div>
+          <div class="preview-phone-card">
+            <div class="preview-notif-header">
+              <span>👶 BabyLens</span>
+              <span>• Just now</span>
+            </div>
+            <div id="previewTitle" class="preview-notif-title">🌟 Special Theme Alert!</div>
+            <div id="previewBody" class="preview-notif-body">Tap to preview this beautiful baby photoshoot theme.</div>
+          </div>
+        </div>
+
+        <div class="checkbox-card">
+          <label for="set_as_banner">Also update Homepage Festival Banner with this theme</label>
+          <input type="checkbox" id="set_as_banner" name="set_as_banner" value="true" checked />
+        </div>
+
+        <button type="submit" id="btnSubmit" class="btn-submit">
+          <span>🚀 Send Push Notification to All Parents</span>
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const themeSelect = document.getElementById('themeSelect');
+      const inputTitle = document.getElementById('inputTitle');
+      const inputBody = document.getElementById('inputBody');
+      const previewTitle = document.getElementById('previewTitle');
+      const previewBody = document.getElementById('previewBody');
+
+      function updateLivePreview() {
+        previewTitle.textContent = inputTitle.value.trim() || '🌟 Special Theme Alert!';
+        previewBody.textContent = inputBody.value.trim() || 'Tap to preview this beautiful baby photoshoot theme.';
+      }
+
+      themeSelect.addEventListener('change', function() {
+        const selected = themeSelect.options[themeSelect.selectedIndex];
+        const label = selected.getAttribute('data-label');
+        const category = selected.getAttribute('data-category') || '';
+
+        if (label) {
+          const isFestival = category.toLowerCase().includes('festival') || 
+                             label.toLowerCase().includes('janmashtami') || 
+                             label.toLowerCase().includes('diwali') || 
+                             label.toLowerCase().includes('christmas') || 
+                             label.toLowerCase().includes('eid');
+
+          const icon = isFestival ? '🪔' : '✨';
+          inputTitle.value = `${icon} Celebrate with ${label}!`;
+          inputBody.value = `Turn your baby's photo into our beloved ${label} photoshoot portrait today. Tap to create!`;
+          updateLivePreview();
+        }
+      });
+
+      inputTitle.addEventListener('input', updateLivePreview);
+      inputBody.addEventListener('input', updateLivePreview);
+
+      // Handle toast url param
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('success') === 'true') {
+        const toast = document.getElementById('toast');
+        if (toast) {
+          toast.classList.add('show');
+          setTimeout(function() {
+            toast.classList.remove('show');
+          }, 5000);
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

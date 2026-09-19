@@ -43,6 +43,7 @@ const apiLimiter = rateLimit({
 app.use("/api/", apiLimiter);
 
 app.use(express.json({ limit: "10mb" })); // Enforce request body size limit to 10MB
+app.use(express.urlencoded({ extended: true, limit: "10mb" })); // Parse URL-encoded form data
 
 // Set up EJS for rendering views
 app.set("view engine", "ejs");

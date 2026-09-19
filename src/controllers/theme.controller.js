@@ -215,6 +215,29 @@ async function updateBanner(req, res, next) {
       file,
     });
 
+    const shouldNotify =
+      req.body.send_festival_push === "true" ||
+      req.body.send_festival_push === true ||
+      req.body.send_festival_push === "on";
+
+    if (shouldNotify && banner && banner.target_theme_id) {
+      const themeTitle = banner.title || "Festival Special";
+      const targetThemeId = (banner.target_theme_id._id || banner.target_theme_id).toString();
+
+      notificationService
+        .sendToTopic("new_themes", {
+          title: `🪔 ${themeTitle}!`,
+          body: banner.description || "Celebrate this festival season with our special baby photoshoot theme!",
+          data: {
+            type: "NEW_THEME",
+            theme_id: targetThemeId,
+          },
+        })
+        .catch((pushErr) => {
+          console.warn("[ThemeController] Festival banner push failed:", pushErr?.message);
+        });
+    }
+
     // Redirect back to management page with success flag for browser form submits
     if (req.accepts("html", "json") === "html" && !req.xhr) {
       return res.redirect("/api/themes/banner/manage?success=true");
@@ -223,6 +246,86 @@ async function updateBanner(req, res, next) {
     return res.status(200).json({
       message: "Banner configuration updated successfully",
       data: banner,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Render the HTML page to broadcast push notifications for existing themes
+ */
+async function renderBroadcastPage(req, res, next) {
+  try {
+    const themes = await themeService.getAllThemes({});
+    const success = req.query.success === "true";
+    return res.render("broadcast-theme", {
+      themes,
+      success,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Broadcast push notification for an existing theme
+ */
+async function broadcastExistingTheme(req, res, next) {
+  try {
+    const { theme_id, notification_title, notification_body, set_as_banner } = req.body || {};
+
+    if (!theme_id) {
+      return res.status(400).json({ message: "theme_id is required" });
+    }
+
+    const theme = await themeService.getThemeById(theme_id);
+    if (!theme) {
+      return res.status(404).json({ message: "Theme not found" });
+    }
+
+    const title =
+      notification_title && notification_title.trim()
+        ? notification_title.trim()
+        : `🌟 Celebrate with ${theme.label}!`;
+
+    const body =
+      notification_body && notification_body.trim()
+        ? notification_body.trim()
+        : `Turn your baby's photo into our beloved ${theme.label} photoshoot portrait today. Tap to preview!`;
+
+    // 1. Dispatch push notification to all parents
+    await notificationService.sendToTopic("new_themes", {
+      title,
+      body,
+      data: {
+        type: "NEW_THEME",
+        theme_id: String(theme._id),
+        theme_label: String(theme.label),
+      },
+    });
+
+    // 2. Optionally also set this theme as the active homepage banner
+    if (set_as_banner === "true" || set_as_banner === true || set_as_banner === "on") {
+      await themeService.updateBanner({
+        body: {
+          target_theme_id: theme._id,
+          label: "✦ FESTIVAL SPECIAL",
+          title: title,
+          description: body,
+          cta_text: "Try Theme →",
+          is_active: "true",
+        },
+      });
+    }
+
+    if (req.accepts("html", "json") === "html" && !req.xhr) {
+      return res.redirect("/api/themes/broadcast?success=true");
+    }
+
+    return res.status(200).json({
+      message: "Push notification broadcast sent successfully to all parents",
+      theme: { id: theme._id, label: theme.label },
     });
   } catch (error) {
     next(error);
@@ -240,4 +343,6 @@ module.exports = {
   renderManageBannerPage,
   getActiveBanner,
   updateBanner,
+  renderBroadcastPage,
+  broadcastExistingTheme,
 };

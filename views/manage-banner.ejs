@@ -278,6 +278,7 @@
     <nav class="admin-nav">
       <a href="/api/themes/create" class="nav-link">🎨 Create Theme</a>
       <a href="/api/themes/banner/manage" class="nav-link active">🚩 Festival Banner</a>
+      <a href="/api/themes/broadcast" class="nav-link">📢 Push Broadcast</a>
       <a href="/api/payments/transactions" class="nav-link">💳 Transactions</a>
     </nav>
     <div class="header">
@@ -339,6 +340,11 @@
         <div class="checkbox-card">
           <label for="is_active">Show Banner in App (Active)</label>
           <input type="checkbox" id="is_active" name="is_active" value="true" <%= (!banner || banner.is_active) ? 'checked' : '' %> />
+        </div>
+
+        <div class="checkbox-card" style="margin-top: 10px;">
+          <label for="send_festival_push">📢 Send Festival Push Notification to All Parents</label>
+          <input type="checkbox" id="send_festival_push" name="send_festival_push" value="true" checked />
         </div>
 
         <button type="submit" id="btnSubmit" class="btn-submit">Save Banner Configuration</button>

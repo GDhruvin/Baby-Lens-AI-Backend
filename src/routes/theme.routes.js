@@ -53,6 +53,12 @@ router.post(
   themeController.updateBanner
 );
 
+// GET /api/themes/broadcast (Render the broadcast push notification HTML page)
+router.get("/broadcast", themeController.renderBroadcastPage);
+
+// POST /api/themes/broadcast (Broadcast notification for an existing theme)
+router.post("/broadcast", upload.none(), themeController.broadcastExistingTheme);
+
 // GET /api/themes (Get all active themes)
 router.get("/", themeController.getAllThemes);
 
