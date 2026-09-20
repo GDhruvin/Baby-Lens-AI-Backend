@@ -52,7 +52,27 @@ async function getProfile(req, res, next) {
   }
 }
 
+/**
+ * Permanently deletes the authenticated user's account and all associated data
+ */
+async function deleteAccount(req, res, next) {
+  try {
+    const userId = req.user._id || req.user.id;
+    const authUid = req.user.auth_uid;
+
+    await userService.deleteUserAccount(userId, authUid);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account and associated data deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   login,
   getProfile,
+  deleteAccount,
 };
