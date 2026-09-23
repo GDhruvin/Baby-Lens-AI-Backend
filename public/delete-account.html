@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account & Data Deletion — BabyLens AI</title>
+  <meta name="description" content="Request permanent deletion of your BabyLens AI account, baby photos, profiles, and associated data.">
+  <link rel="icon" type="image/png" href="assets/app_icon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #D05A2A;
+      --primary-dark: #A23908;
+      --primary-soft: rgba(208, 90, 42, 0.12);
+      --bg: #FDF6F0;
+      --surface: #FFFFFF;
+      --surface-warm: #FFF8F2;
+      --text-main: #3B2211;
+      --text-muted: #7C6A5D;
+      --border-color: #EAE0D6;
+      --danger: #DC2626;
+      --shadow-md: 0 10px 30px rgba(59, 34, 17, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      line-height: 1.7;
+      padding-bottom: 60px;
+    }
+
+    h1, h2, h3, h4, .brand-title {
+      font-family: 'Outfit', sans-serif;
+      color: var(--text-main);
+    }
+
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 32px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .brand img {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      object-fit: cover;
+    }
+
+    .brand-title {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .brand-title span {
+      color: var(--primary);
+    }
+
+    .nav-back {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-back:hover {
+      color: var(--primary);
+    }
+
+    .doc-container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 48px;
+      background: var(--surface);
+      border-radius: 28px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-md);
+    }
+
+    .doc-header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+
+    .doc-header h1 {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .step-box {
+      background: var(--surface-warm);
+      border-radius: 20px;
+      padding: 24px;
+      border: 1px solid var(--border-color);
+      margin: 24px 0;
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-box ol {
+      padding-left: 20px;
+    }
+
+    .step-box li {
+      margin-bottom: 8px;
+      color: #4A3525;
+    }
+
+    .btn-delete-request {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      padding: 12px 24px;
+      border-radius: 12px;
+      margin-top: 12px;
+      transition: background 0.2s ease;
+    }
+
+    .btn-delete-request:hover {
+      background: var(--primary-dark);
+    }
+
+    .table-data {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+    }
+
+    .table-data th, .table-data td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 14px;
+    }
+
+    .table-data th {
+      background: var(--surface-warm);
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .badge-deleted {
+      background: rgba(220, 38, 38, 0.12);
+      color: #DC2626;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    .badge-retained {
+      background: rgba(100, 116, 139, 0.12);
+      color: #475569;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .doc-container {
+        padding: 28px 20px;
+        margin: 10px 16px;
+      }
+      .doc-header h1 {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <a href="index.html" class="brand">
+      <img src="assets/logo.png" alt="BabyLens AI Logo">
+      <span class="brand-title">BabyLens<span>AI</span></span>
+    </a>
+    <a href="index.html" class="nav-back">← Back to Home</a>
+  </header>
+
+  <main class="doc-container">
+    <div class="doc-header">
+      <h1>Account & Data Deletion Request</h1>
+      <p style="color: var(--text-muted); font-size: 14px;">
+        Google Play & Apple Compliance Portal for <strong>BabyLens: AI Baby Photoshoots</strong> (Package: <code>com.babylens</code>)
+      </p>
+    </div>
+
+    <p>
+      At BabyLens AI, we strictly uphold your right to data sovereignty. You can delete your account and all associated child photos, profile details, and generated artworks permanently at any time.
+    </p>
+
+    <!-- Method 1 -->
+    <div class="step-box">
+      <div class="step-title">
+        📱 Method 1: Delete Directly Inside the Mobile App (Instant)
+      </div>
+      <p>If you currently have the BabyLens AI app installed on your phone:</p>
+      <ol>
+        <li>Open the <strong>BabyLens AI</strong> app on your device.</li>
+        <li>Tap the <strong>Profile</strong> tab in the bottom navigation bar.</li>
+        <li>Scroll to the bottom and tap <strong>Delete Account</strong>.</li>
+        <li>Confirm the action in the security dialog by tapping <strong>Delete Forever</strong>.</li>
+      </ol>
+      <p style="margin-top: 10px; font-size: 13.5px; color: var(--text-muted);">
+        ✅ All cloud storage assets, database records, and authentication tokens will be deleted immediately.
+      </p>
+    </div>
+
+    <!-- Method 2 -->
+    <div class="step-box">
+      <div class="step-title">
+        🌐 Method 2: Request Web Deletion (If App is Uninstalled)
+      </div>
+      <p>
+        If you have uninstalled the app or cannot log in, you can request manual deletion by sending an email from the email address associated with your BabyLens account:
+      </p>
+      <p style="margin-top: 10px;">
+        <strong>Recipient:</strong> <a href="mailto:support@babylens.app?subject=Account%20and%20Data%20Deletion%20Request%20-%20BabyLens&body=Hello%20BabyLens%20Team%2C%0A%0APlease%20permanently%20delete%20my%20BabyLens%20AI%20account%20and%20all%20associated%20photos%20and%20data.%0A%0AAccount%20Email%3A%20%5BEnter%20your%20registered%20email%5D%0AThank%20you." style="color: var(--primary); font-weight: 600;">support@babylens.app</a> or <a href="mailto:babylens.ai@gmail.com" style="color: var(--primary); font-weight: 600;">babylens.ai@gmail.com</a><br>
+        <strong>Subject Line:</strong> <code>Account and Data Deletion Request - BabyLens</code><br>
+        <strong>Processing Timeline:</strong> Requests submitted via email are verified and processed within <strong>48 hours</strong>.
+      </p>
+      <a href="mailto:support@babylens.app?subject=Account%20and%20Data%20Deletion%20Request%20-%20BabyLens&body=Hello%20BabyLens%20Team%2C%0A%0APlease%20permanently%20delete%20my%20BabyLens%20AI%20account%20and%20all%20associated%20photos%20and%20data.%0A%0AAccount%20Email%3A%20%5BEnter%20your%20registered%20email%5D%0AThank%20you." class="btn-delete-request">
+        ✉️ Submit Deletion Email Request
+      </a>
+    </div>
+
+    <!-- Data Types Table -->
+    <h2>What Data is Deleted vs. Retained</h2>
+    <table class="table-data">
+      <thead>
+        <tr>
+          <th>Data Category</th>
+          <th>Specific Items</th>
+          <th>Deletion Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Uploaded Baby Photos</strong></td>
+          <td>All source reference pictures uploaded to cloud storage</td>
+          <td><span class="badge-deleted">Permanently Purged</span></td>
+        </tr>
+        <tr>
+          <td><strong>Generated AI Portraits</strong></td>
+          <td>All themed AI outputs and watermarked previews</td>
+          <td><span class="badge-deleted">Permanently Purged</span></td>
+        </tr>
+        <tr>
+          <td><strong>Baby Profiles</strong></td>
+          <td>Names, gender, birth dates, and theme preferences</td>
+          <td><span class="badge-deleted">Permanently Purged</span></td>
+        </tr>
+        <tr>
+          <td><strong>Account & Identity</strong></td>
+          <td>Firebase UID, user profile record, and device fingerprint links</td>
+          <td><span class="badge-deleted">Permanently Purged</span></td>
+        </tr>
+        <tr>
+          <td><strong>In-App Purchases</strong></td>
+          <td>Photoshoot credit balances</td>
+          <td><span class="badge-deleted">Immediately Voided</span></td>
+        </tr>
+        <tr>
+          <td><strong>Financial Records</strong></td>
+          <td>Google Play Order IDs (e.g. <code>GPA.xxxx</code>)</td>
+          <td><span class="badge-retained">Retained for Tax/Accounting Law</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-size: 13.5px; color: var(--text-muted); margin-top: 24px;">
+      For further questions regarding our data retention practices, please refer to our full <a href="PRIVACY_POLICY.html" style="color: var(--primary);">Privacy Policy</a>.
+    </p>
+  </main>
+
+</body>
+</html>

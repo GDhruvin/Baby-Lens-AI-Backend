@@ -52,17 +52,27 @@ app.use(cookieParser(process.env.ADMIN_SESSION_SECRET || "babylens_admin_secret_
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(require("./src/routes/legal.routes"));
+
 app.use("/admin", require("./src/routes/admin.routes"));
 app.use("/api/auth", require("./src/routes/user.routes"));
 app.use("/api/baby-profiles", require("./src/routes/babyProfile.routes"));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/themes", require("./src/routes/theme.routes"));
 app.use("/api/generations", require("./src/routes/generation.routes"));
 app.use("/api/payments", require("./src/routes/payment.routes"));
 app.use("/api/notifications", require("./src/routes/notification.routes"));
 
-// Health Check Route with Active DB connectivity check
-app.get("/", healthCheck);
+// Public Web & Health Check Routes
+app.get("/health", healthCheck);
+app.get("/api/health", healthCheck);
+app.get("/", (req, res) => {
+  if (req.accepts("html")) {
+    return res.sendFile(path.join(__dirname, "public", "index.html"));
+  }
+  return healthCheck(req, res);
+});
 
 // Centralized Global Error Handling Middleware (Must be registered last)
 app.use(errorHandler);
