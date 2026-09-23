@@ -39,12 +39,13 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 30px 20px;
+      padding: 0 0 40px 0;
     }
 
     .container {
       width: 100%;
       max-width: 1100px;
+      padding: 0 20px;
     }
 
     /* Admin Navigation Tabs */
@@ -459,15 +460,9 @@
   </style>
 </head>
 <body>
+  <%- include('partials/admin-navbar', { activeTab: 'transactions' }) %>
 
   <div class="container">
-
-    <!-- Admin Navigation Header Tabs -->
-    <nav class="admin-nav">
-      <a href="/api/themes/create" class="nav-link">🎨 Create Theme</a>
-      <a href="/api/themes/banner/manage" class="nav-link">🚩 Festival Banner</a>
-      <a href="/api/payments/transactions" class="nav-link active">💳 Transactions</a>
-    </nav>
 
     <!-- Page Header -->
     <div class="header">

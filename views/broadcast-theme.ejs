@@ -35,12 +35,13 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 20px;
+      padding: 0 0 40px 0;
     }
 
     .container {
       width: 100%;
       max-width: 660px;
+      padding: 0 20px;
     }
 
     .header {
@@ -294,6 +295,7 @@
   </style>
 </head>
 <body>
+  <%- include('partials/admin-navbar', { activeTab: 'broadcast' }) %>
 
   <!-- Floating Toast Notification -->
   <div id="toast" class="toast <%= (typeof success !== 'undefined' && success) ? 'show' : '' %>">
@@ -302,14 +304,6 @@
   </div>
 
   <div class="container">
-
-    <!-- Admin Navigation Header Tabs -->
-    <nav class="admin-nav">
-      <a href="/api/themes/create" class="nav-link">🎨 Create Theme</a>
-      <a href="/api/themes/banner/manage" class="nav-link">🚩 Festival Banner</a>
-      <a href="/api/themes/broadcast" class="nav-link active">📢 Push Broadcast</a>
-      <a href="/api/payments/transactions" class="nav-link">💳 Transactions</a>
-    </nav>
 
     <div class="header">
       <h1>Broadcast Theme Push Notification</h1>

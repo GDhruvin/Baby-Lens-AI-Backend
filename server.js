@@ -45,10 +45,14 @@ app.use("/api/", apiLimiter);
 app.use(express.json({ limit: "10mb" })); // Enforce request body size limit to 10MB
 app.use(express.urlencoded({ extended: true, limit: "10mb" })); // Parse URL-encoded form data
 
+const cookieParser = require("cookie-parser");
+app.use(cookieParser(process.env.ADMIN_SESSION_SECRET || "babylens_admin_secret_fallback_key"));
+
 // Set up EJS for rendering views
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+app.use("/admin", require("./src/routes/admin.routes"));
 app.use("/api/auth", require("./src/routes/user.routes"));
 app.use("/api/baby-profiles", require("./src/routes/babyProfile.routes"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

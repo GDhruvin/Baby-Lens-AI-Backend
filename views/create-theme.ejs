@@ -35,12 +35,13 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 20px;
+      padding: 0 0 40px 0;
     }
 
     .container {
       width: 100%;
       max-width: 680px;
+      padding: 0 20px;
     }
 
     .header {
@@ -266,6 +267,7 @@
   </style>
 </head>
 <body>
+  <%- include('partials/admin-navbar', { activeTab: 'create-theme' }) %>
 
   <!-- Floating Toast Notification -->
   <div id="toast" class="toast <%= (typeof success !== 'undefined' && success) ? 'show' : '' %>">
@@ -275,13 +277,6 @@
 
   <div class="container">
 
-    <!-- Admin Navigation Header Tabs -->
-    <nav class="admin-nav">
-      <a href="/api/themes/create" class="nav-link active">🎨 Create Theme</a>
-      <a href="/api/themes/banner/manage" class="nav-link">🚩 Festival Banner</a>
-      <a href="/api/themes/broadcast" class="nav-link">📢 Push Broadcast</a>
-      <a href="/api/payments/transactions" class="nav-link">💳 Transactions</a>
-    </nav>
     <div class="header">
       <h1>Create New Theme</h1>
       <p>Add a new AI photoshoot theme to the BabyLens gallery</p>
