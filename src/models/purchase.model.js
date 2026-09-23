@@ -37,6 +37,10 @@ const purchaseSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    order_id: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

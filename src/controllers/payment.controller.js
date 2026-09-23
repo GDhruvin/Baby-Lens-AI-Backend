@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const Generation = require("../models/generation.model");
 const Purchase = require("../models/purchase.model");
+const googlePlayService = require("../services/googlePlay.service");
 
 /**
  * Verifies Google Play In-App Purchase token and credits photoshoot entitlements.
@@ -53,7 +54,34 @@ async function verifyPurchase(req, res, next) {
       });
     }
 
-    // 2. Retrieve User
+    // 2. Real Google Play Developer API Verification
+    let googleVerification = null;
+    const isMockToken = purchaseToken.startsWith("test_") ||
+                        purchaseToken.startsWith("gplay_token_") ||
+                        purchaseToken.startsWith("mock_");
+
+    if (isMockToken && process.env.ALLOW_MOCK_PURCHASE === "true") {
+      console.log(`[verifyPurchase] Sandbox/Mock token bypass enabled in development: ${purchaseToken}`);
+    } else {
+      // Calls Google Play Publisher API v3
+      googleVerification = await googlePlayService.verifyProductPurchase({
+        packageName: packageName || process.env.GOOGLE_PLAY_PACKAGE_NAME || "com.babylens",
+        productId,
+        purchaseToken,
+      });
+
+      // Acknowledge the purchase with Google Play if not yet acknowledged
+      if (googleVerification.acknowledgementState === 0) {
+        await googlePlayService.acknowledgePurchase({
+          packageName: packageName || process.env.GOOGLE_PLAY_PACKAGE_NAME || "com.babylens",
+          productId,
+          purchaseToken,
+          developerPayload: `user_${userId}`,
+        }).catch(() => {});
+      }
+    }
+
+    // 3. Retrieve User
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -62,7 +90,7 @@ async function verifyPurchase(req, res, next) {
       });
     }
 
-    // 3. Automatically unlock all existing watermarked/locked trial photos for user
+    // 4. Automatically unlock all existing watermarked/locked trial photos for user
     const userObjectId = new mongoose.Types.ObjectId(userId);
     const unlockResult = await Generation.updateMany(
       { user_id: userObjectId, is_unlocked: false },
@@ -70,7 +98,7 @@ async function verifyPurchase(req, res, next) {
     );
     const unlockedCount = unlockResult.modifiedCount || 0;
 
-    // 4. Save Purchase Transaction
+    // 5. Save Purchase Transaction with Google Order ID
     const purchase = new Purchase({
       user_id: user._id,
       email: user.email,
@@ -79,6 +107,7 @@ async function verifyPurchase(req, res, next) {
       credits_added: creditsToAdd,
       payment_status: "completed",
       transaction_id: purchaseToken,
+      order_id: googleVerification?.orderId || null,
     });
     await purchase.save();
 
