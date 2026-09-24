@@ -3,8 +3,11 @@ const router = express.Router();
 const generationController = require("../controllers/generation.controller");
 const { requireAuth } = require("../middlewares/auth.middleware");
 
-// POST /api/generations/create (Triggers Vertex AI photo generation)
+// POST /api/generations/create (Enqueues background AI photoshoot generation)
 router.post("/create", requireAuth, generationController.create);
+
+// GET /api/generations/status/:id (Poll background photoshoot generation status)
+router.get("/status/:id", requireAuth, generationController.status);
 
 // GET /api/generations/uploaded-images (Basic flat list of outputs)
 router.get("/uploaded-images", requireAuth, generationController.list);

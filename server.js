@@ -19,6 +19,11 @@ const { makeGracefulShutdown } = require("./src/utils/shutdown");
 // Connect to MongoDB
 connectDB();
 
+// Initialize Asynchronous Background Generation Queue & Worker
+const { initGenerationQueue } = require("./src/queues/generation.queue");
+const { generationWorkerProcessor } = require("./src/workers/generation.worker");
+initGenerationQueue(generationWorkerProcessor);
+
 const app = express();
 
 const requestLogger = require("./src/middlewares/logger.middleware");

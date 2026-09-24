@@ -470,123 +470,263 @@ async function createGeneration({ userId, profile_id, theme_id }) {
     isUnlocked = false;
   }
 
-  const finalPrompt = buildFinalPrompt(theme.prompt_template, profile.identity_json);
-  const bucket = admin.storage().bucket();
+  // Atomically reserve credit and create initial pending generation record
+  if (resolvedPaymentType === "paid") {
+    user.paid_credits = Math.max(0, user.paid_credits - 1);
+  } else {
+    user.free_generations_used = 1;
+  }
+  await user.save();
 
-  // Mock Generation mode (Instant transactional save)
-  if (!useRealGemini) {
-    const mockGeneration = await saveGenerationAndCredits({
-      userId,
-      profileId: profile._id,
-      themeId: theme._id,
-      themeLabel: theme.label,
-      outputImageUrl: null,
-      paymentType: resolvedPaymentType,
-      isUnlocked,
-    });
+  const generation = await Generation.create({
+    user_id: userId,
+    baby_profile_id: profile._id,
+    theme_id: theme._id,
+    theme_selected: theme.label,
+    output_image_url: null,
+    payment_type: resolvedPaymentType,
+    is_unlocked: isUnlocked,
+    status: "pending",
+  });
 
-    // Fetch updated user credits for response
-    const updatedUser = await User.findById(userId);
+  // Enqueue background processing job
+  const { enqueueGenerationJob } = require("../queues/generation.queue");
+  await enqueueGenerationJob({
+    generationId: String(generation._id),
+    userId: String(userId),
+    profileId: String(profile._id),
+    themeId: String(theme._id),
+    paymentType: resolvedPaymentType,
+  });
 
-    return {
-      isMock: true,
-      generation_id: mockGeneration._id,
-      prompt_used: finalPrompt,
-      output_image_url: null,
-      user_credits: {
-        free_generations_used: updatedUser.free_generations_used,
-        paid_credits: updatedUser.paid_credits,
-      },
-    };
+  console.log(`[createGeneration] Enqueued background photoshoot job for generation: ${generation._id} (User: ${userId})`);
+
+  return {
+    status: "pending",
+    message: "Photoshoot generation started in background",
+    generation_id: generation._id,
+    profile_id: profile._id,
+    theme_id: theme._id,
+    poll_url: `/api/generations/status/${generation._id}`,
+    user_credits: {
+      free_generations_used: user.free_generations_used,
+      paid_credits: user.paid_credits,
+    },
+  };
+}
+
+/**
+ * Background worker task: Executes Vertex AI / Gemini generation, uploads image, and notifies user.
+ * Auto-refunds credits if an error occurs.
+ */
+async function executeBackgroundGeneration({ generationId, userId, profileId, themeId, paymentType }) {
+  const generation = await Generation.findById(generationId);
+  if (!generation) {
+    console.error(`[executeBackgroundGeneration] Generation not found: ${generationId}`);
+    return;
   }
 
-  // Real Generation Mode (External API calls occur outside transaction)
-  const normalizedReferenceImageUrl = await getFirebaseDownloadUrl(profile.reference_image_url);
+  if (generation.status === "completed") {
+    console.log(`[executeBackgroundGeneration] Generation ${generationId} already completed.`);
+    return generation;
+  }
 
-  const fetchController = new AbortController();
-  const fetchTimeout = setTimeout(() => {
-    fetchController.abort();
-  }, EXTERNAL_REQUEST_TIMEOUT_MS);
+  generation.status = "processing";
+  await generation.save();
 
-  let referenceImageResponse;
+  const [profile, theme] = await Promise.all([
+    BabyProfile.findById(profileId),
+    Theme.findById(themeId),
+  ]);
+
+  if (!profile || !theme) {
+    const errorMsg = !profile ? "Baby profile not found" : "Theme not found";
+    await handleGenerationFailure(generation, userId, theme?.label || "Photoshoot", errorMsg, "RESOURCE_NOT_FOUND");
+    return;
+  }
+
   try {
-    referenceImageResponse = await fetch(normalizedReferenceImageUrl, {
-      signal: fetchController.signal,
-    });
-  } catch (err) {
-    console.warn("Failed to fetch reference image:", err.message);
-  } finally {
-    clearTimeout(fetchTimeout);
-  }
+    const finalPrompt = buildFinalPrompt(theme.prompt_template, profile.identity_json);
+    const bucket = admin.storage().bucket();
 
-  if (!referenceImageResponse || !referenceImageResponse.ok) {
-    const error = new Error("Could not read baby profile image from storage");
-    error.code = "REFERENCE_IMAGE_UNREADABLE";
+    // 1. Mock Generation Mode
+    if (!useRealGemini) {
+      console.log(`[executeBackgroundGeneration] Mock mode active for generation ${generationId}`);
+      await new Promise((r) => setTimeout(r, 1200));
+
+      generation.status = "completed";
+      generation.output_image_url = null;
+      await generation.save();
+
+      await Theme.findByIdAndUpdate(themeId, { $inc: { generation_count: 1 } });
+
+      notificationService
+        .notifyGenerationComplete({
+          userId,
+          generationId: generation._id,
+          themeLabel: theme.label,
+          imageUrl: null,
+        })
+        .catch((pushErr) => {
+          console.warn("[executeBackgroundGeneration] Push notification failed:", pushErr?.message);
+        });
+
+      return generation;
+    }
+
+    // 2. Real Gemini / Vertex AI Generation Mode
+    const normalizedReferenceImageUrl = await getFirebaseDownloadUrl(profile.reference_image_url);
+
+    const fetchController = new AbortController();
+    const fetchTimeout = setTimeout(() => {
+      fetchController.abort();
+    }, EXTERNAL_REQUEST_TIMEOUT_MS);
+
+    let referenceImageResponse;
+    try {
+      referenceImageResponse = await fetch(normalizedReferenceImageUrl, {
+        signal: fetchController.signal,
+      });
+    } catch (err) {
+      console.warn("Failed to fetch reference image:", err.message);
+    } finally {
+      clearTimeout(fetchTimeout);
+    }
+
+    if (!referenceImageResponse || !referenceImageResponse.ok) {
+      const error = new Error("Could not read baby profile image from storage");
+      error.code = "REFERENCE_IMAGE_UNREADABLE";
+      throw error;
+    }
+
+    const arrayBuffer = await referenceImageResponse.arrayBuffer();
+    const referenceImageBase64 = Buffer.from(arrayBuffer).toString("base64");
+    const referenceMimeType = referenceImageResponse.headers.get("content-type") || "image/jpeg";
+
+    const generatedImage = await collectTargetGeneratedImage(
+      finalPrompt,
+      referenceImageBase64,
+      referenceMimeType
+    );
+
+    if (!generatedImage) {
+      throw new Error("Gemini did not return an image");
+    }
+
+    const uploadedImages = await uploadGeneratedImages(bucket, userId, [generatedImage]);
+    const outputImageUrl = uploadedImages[0]?.downloadUrl || null;
+    const outputImageCloudPath = uploadedImages[0]?.cloudPath || null;
+
+    generation.output_image_url = outputImageCloudPath;
+    generation.status = "completed";
+    await generation.save();
+
+    await Theme.findByIdAndUpdate(themeId, { $inc: { generation_count: 1 } });
+
+    // Send completion notification
+    notificationService
+      .notifyGenerationComplete({
+        userId,
+        generationId: generation._id,
+        themeLabel: theme.label,
+        imageUrl: outputImageUrl,
+      })
+      .catch((pushErr) => {
+        console.warn("[executeBackgroundGeneration] Push notification dispatch failed:", pushErr?.message);
+      });
+
+    console.log(`[executeBackgroundGeneration] Generation ${generationId} completed successfully!`);
+    return generation;
+  } catch (error) {
+    console.error(`[executeBackgroundGeneration] Generation failed: ${error.message}`);
+    await handleGenerationFailure(
+      generation,
+      userId,
+      theme?.label || "Photoshoot",
+      error.message,
+      error.code || "GENERATION_FAILED"
+    );
+  }
+}
+
+/**
+ * Handle generation failure: mark status failed, auto-refund credit, and notify user
+ */
+async function handleGenerationFailure(generation, userId, themeLabel, errorMessage, errorCode) {
+  try {
+    generation.status = "failed";
+    generation.error_message = errorMessage;
+    generation.error_code = errorCode;
+
+    // Credit Auto-Refund
+    if (!generation.refunded) {
+      if (generation.payment_type === "paid") {
+        await User.findByIdAndUpdate(userId, { $inc: { paid_credits: 1 } });
+        console.log(`[handleGenerationFailure] Refunded 1 paid credit to user: ${userId}`);
+      } else if (generation.payment_type === "free") {
+        await User.findByIdAndUpdate(userId, { $set: { free_generations_used: 0 } });
+        console.log(`[handleGenerationFailure] Restored free generation trial for user: ${userId}`);
+      }
+      generation.refunded = true;
+    }
+
+    await generation.save();
+
+    // Notify user of failure & credit restoration
+    notificationService
+      .notifyGenerationFailed({
+        userId,
+        themeLabel,
+        errorMessage,
+      })
+      .catch((pushErr) => {
+        console.warn("[handleGenerationFailure] Push notification failed:", pushErr?.message);
+      });
+  } catch (err) {
+    console.error(`[handleGenerationFailure] Error during failure refund: ${err.message}`);
+  }
+}
+
+/**
+ * Query current status and output of a photoshoot generation
+ */
+async function getGenerationStatus({ userId, generationId }) {
+  if (!mongoose.Types.ObjectId.isValid(generationId)) {
+    const error = new Error("Invalid generation ID format");
     error.status = 400;
-    error.details = {
-      reference_image_status: referenceImageResponse ? referenceImageResponse.status : "Fetch Failed",
-      reference_image_url: normalizedReferenceImageUrl,
-    };
     throw error;
   }
 
-  const arrayBuffer = await referenceImageResponse.arrayBuffer();
-  const referenceImageBase64 = Buffer.from(arrayBuffer).toString("base64");
-  const referenceMimeType = referenceImageResponse.headers.get("content-type") || "image/jpeg";
-
-  const generatedImage = await collectTargetGeneratedImage(
-    finalPrompt,
-    referenceImageBase64,
-    referenceMimeType
-  );
-
-  if (!generatedImage) {
-    throw new Error("Gemini did not return an image");
+  const generation = await Generation.findOne({ _id: generationId, user_id: userId });
+  if (!generation) {
+    const error = new Error("Generation not found");
+    error.status = 404;
+    throw error;
   }
 
-  const uploadedImages = await uploadGeneratedImages(bucket, userId, [generatedImage]);
-  const outputImageUrl = uploadedImages[0]?.downloadUrl || null;
-  const outputImageCloudPath = uploadedImages[0]?.cloudPath || null;
+  const user = await User.findById(userId);
 
-  // Execute database writes inside a transaction
-  const savedGeneration = await saveGenerationAndCredits({
-    userId,
-    profileId: profile._id,
-    themeId: theme._id,
-    themeLabel: theme.label,
-    outputImageUrl: outputImageCloudPath,
-    paymentType: resolvedPaymentType,
-    isUnlocked,
-  });
-
-  // Fetch updated user credits for response
-  const updatedUser = await User.findById(userId);
-
-  const finalOutputUrl = outputImageUrl;
-
-  // Dispatch background push notification (non-blocking)
-  notificationService
-    .notifyGenerationComplete({
-      userId,
-      generationId: savedGeneration._id,
-      themeLabel: theme.label,
-      imageUrl: finalOutputUrl,
-    })
-    .catch((pushErr) => {
-      console.warn("[GenerationService] Push notification dispatch failed:", pushErr?.message);
-    });
+  let resolvedOutputUrl = null;
+  if (generation.status === "completed" && generation.output_image_url) {
+    resolvedOutputUrl = await getFirebaseDownloadUrl(generation.output_image_url);
+  }
 
   return {
-    isMock: false,
-    generation_id: savedGeneration._id,
-    profile_id: profile._id,
-    theme_id: theme._id,
-    output_image_url: finalOutputUrl,
-    is_unlocked: savedGeneration.is_unlocked,
-    user_credits: {
-      free_generations_used: updatedUser.free_generations_used,
-      paid_credits: updatedUser.paid_credits,
-    },
+    status: generation.status, // "pending" | "processing" | "completed" | "failed"
+    generation_id: generation._id,
+    theme_id: generation.theme_id,
+    theme_selected: generation.theme_selected,
+    output_image_url: resolvedOutputUrl,
+    is_unlocked: generation.is_unlocked,
+    error_message: generation.error_message || null,
+    error_code: generation.error_code || null,
+    refunded: generation.refunded || false,
+    user_credits: user
+      ? {
+          free_generations_used: user.free_generations_used,
+          paid_credits: user.paid_credits,
+        }
+      : null,
   };
 }
 
@@ -819,7 +959,10 @@ async function deleteGeneration({ userId, generationId }) {
 
 module.exports = {
   createGeneration,
+  executeBackgroundGeneration,
+  getGenerationStatus,
   listUploadedImages,
   myPhotos,
   deleteGeneration,
 };
+

@@ -32,9 +32,13 @@ const generationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "completed", "failed"],
+      enum: ["pending", "processing", "completed", "failed"],
       default: "pending",
+      index: true,
     },
+    error_message: { type: String, default: null },
+    error_code: { type: String, default: null },
+    refunded: { type: Boolean, default: false },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

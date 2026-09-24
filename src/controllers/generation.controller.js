@@ -5,7 +5,7 @@ const User = require("../models/user.model");
 const { applyWatermark } = require("../services/watermark.service");
 
 /**
- * Trigger AI photoshoot image generation
+ * Trigger AI photoshoot image generation (Async Queue)
  */
 async function create(req, res, next) {
   try {
@@ -15,24 +15,31 @@ async function create(req, res, next) {
 
     const result = await generationService.createGeneration({ userId, profile_id, theme_id });
 
-    if (result.isMock) {
-      return res.status(200).json({
-        message: "Mock mode enabled. Prompt prepared successfully.",
-        generation_id: result.generation_id,
-        prompt_used: result.prompt_used,
-        output_image_url: null,
-        user_credits: result.user_credits,
-      });
-    }
-
+    // Returns immediately (< 100ms) with pending job info and poll_url
     return res.status(200).json({
-      message: "Image generated successfully",
+      status: result.status, // "pending"
+      message: result.message,
       generation_id: result.generation_id,
       profile_id: result.profile_id,
       theme_id: result.theme_id,
-      output_image_url: result.output_image_url,
+      poll_url: result.poll_url,
       user_credits: result.user_credits,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Poll current status of a background photoshoot generation
+ */
+async function status(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const result = await generationService.getGenerationStatus({ userId, generationId: id });
+    return res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -166,8 +173,10 @@ async function photo(req, res, next) {
 
 module.exports = {
   create,
+  status,
   list,
   myPhotos,
   deleteGeneration,
   photo,
 };
+
