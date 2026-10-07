@@ -1,0 +1,18 @@
+# Ignore node_modules & local build artifacts
+node_modules/
+npm-debug.log*
+.git/
+.gitignore
+
+# Scratch & test scripts
+scripts/
+test-async.js
+test_notification.js
+testvertex.js
+cleanup_db.js
+.context/
+CONTEXT.md
+
+# Keep credentials required by backend at runtime
+!src/config/firebase-service-account.json
+!src/config/google-play-service-account.json
