@@ -26,6 +26,9 @@ initGenerationQueue(generationWorkerProcessor);
 
 const app = express();
 
+// Trust reverse proxy (Google Cloud Run / Load Balancer) to accurately identify real client IPs
+app.set("trust proxy", 1);
+
 const requestLogger = require("./src/middlewares/logger.middleware");
 
 // Basic Middleware
@@ -34,12 +37,19 @@ app.use(compression());
 app.use(cors());
 app.use(requestLogger);
 
-// Global API rate limiter - 15 minutes window, max 100 requests per IP
+// Global API rate limiter - 15 minutes window, max 1000 requests per IP
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
+  max: 1000, // Accommodates rich mobile browsing and photoshoot polling (up to 1000 req / 15 min)
   standardHeaders: "draft-7", // Use modern RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
+  skip: (req) => {
+    // Exempt lightweight generation polling and health check from general rate limits
+    return (
+      req.path === "/health" ||
+      req.path.startsWith("/generations/status")
+    );
+  },
   message: {
     error_code: "TOO_MANY_REQUESTS",
     message: "Too many requests from this IP, please try again after 15 minutes",
