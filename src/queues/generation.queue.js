@@ -113,9 +113,32 @@ async function enqueueGenerationJob(jobData) {
     return { id: job.id, isRedis: true };
   }
 
-  // In-Memory Fallback
+  // In-Memory Fallback + Cloud Run Self-Invoked HTTP Worker
   inMemoryQueue.push({ data: jobData });
   setImmediate(processNextInMemoryJob);
+
+  // When running on Cloud Run in production, trigger internal loopback HTTP request
+  // so Google Cloud Run detects an active incoming request and keeps CPU allocated at 100%
+  // even if the mobile user closes the app immediately!
+  const serviceBaseUrl =
+    process.env.SERVICE_URL ||
+    (process.env.NODE_ENV === "production"
+      ? "https://babylens-backend-765344720457.us-central1.run.app"
+      : null);
+
+  if (serviceBaseUrl) {
+    fetch(`${serviceBaseUrl}/api/generations/process-internal`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-worker-secret": process.env.ADMIN_SESSION_SECRET || "babylens_admin_secret_fallback_key",
+      },
+      body: JSON.stringify(jobData),
+    }).catch((err) => {
+      console.warn("[GenerationQueue] Internal loopback trigger warning:", err.message);
+    });
+  }
+
   return { id: String(jobData.generationId), isRedis: false };
 }
 

@@ -6,6 +6,9 @@ const { requireAuth } = require("../middlewares/auth.middleware");
 // POST /api/generations/create (Enqueues background AI photoshoot generation)
 router.post("/create", requireAuth, generationController.create);
 
+// POST /api/generations/process-internal (Internal Cloud Run HTTP worker trigger)
+router.post("/process-internal", generationController.processInternal);
+
 // GET /api/generations/status/:id (Poll background photoshoot generation status)
 router.get("/status/:id", requireAuth, generationController.status);
 

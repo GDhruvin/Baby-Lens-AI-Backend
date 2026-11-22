@@ -171,6 +171,39 @@ async function photo(req, res, next) {
 }
 
 
+/**
+ * Internal background job processor (Keeps Cloud Run CPU active when app is closed)
+ */
+async function processInternal(req, res, next) {
+  try {
+    const secret = req.headers["x-worker-secret"];
+    const expectedSecret = process.env.ADMIN_SESSION_SECRET || "babylens_admin_secret_fallback_key";
+
+    if (!secret || secret !== expectedSecret) {
+      return res.status(403).json({ error: "Unauthorized internal trigger" });
+    }
+
+    const { generationId, userId, profileId, themeId, paymentType } = req.body || {};
+    if (!generationId) {
+      return res.status(400).json({ error: "Missing generationId" });
+    }
+
+    console.log(`[processInternal] Active HTTP worker started for generation: ${generationId}`);
+    await generationService.executeBackgroundGeneration({
+      generationId,
+      userId,
+      profileId,
+      themeId,
+      paymentType,
+    });
+
+    return res.status(200).json({ success: true, generationId });
+  } catch (error) {
+    console.error("[processInternal] Execution error:", error);
+    next(error);
+  }
+}
+
 module.exports = {
   create,
   status,
@@ -178,5 +211,6 @@ module.exports = {
   myPhotos,
   deleteGeneration,
   photo,
+  processInternal,
 };
 
