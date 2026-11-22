@@ -8,6 +8,7 @@ const User = require("../models/user.model");
 const Device = require("../models/device.model");
 const { getFirebaseDownloadUrl, deleteFromFirebase } = require("../utils/storageUtils");
 const notificationService = require("./notification.service");
+const { checkIsAdmin } = require("../middlewares/auth.middleware");
 
 // Env variables for Gemini / Vertex AI
 const useRealGemini = process.env.USE_GEMINI_API === "true";
@@ -17,7 +18,7 @@ const MAX_GENERATION_ATTEMPTS = Number(process.env.GENERATION_MAX_ATTEMPTS || 6)
 const EXTERNAL_REQUEST_TIMEOUT_MS = Number(process.env.GENERATION_EXTERNAL_REQUEST_TIMEOUT_MS || 60000);
 const RETRY_DELAY_MIN_MS = Number(process.env.GENERATION_RETRY_DELAY_MIN_MS || 2000);
 const RETRY_DELAY_MAX_MS = Number(process.env.GENERATION_RETRY_DELAY_MAX_MS || 5000);
-const MAX_429_RETRIES = Number(process.env.GENERATION_MAX_429_RETRIES || 1);
+const MAX_429_RETRIES = Number(process.env.GENERATION_MAX_429_RETRIES || 4);
 
 const ai = useRealGemini
   ? new GoogleGenAI({
@@ -210,6 +211,13 @@ async function collectTargetGeneratedImage(prompt, referenceImageBase64, referen
     return Math.floor(Math.random() * (max - min + 1)) + min;
   };
 
+  const get429BackoffMs = (retryCount) => {
+    // Exponential backoff: ~3s, ~6s, ~12s, ~24s with jitter
+    const base = Math.min(25000, 3000 * Math.pow(2, retryCount - 1));
+    const jitter = Math.floor(Math.random() * 1500);
+    return base + jitter;
+  };
+
   let generatedImage = null;
   let attempts = 0;
   let quotaRetryCount = 0;
@@ -228,14 +236,26 @@ async function collectTargetGeneratedImage(prompt, referenceImageBase64, referen
         generatedImage = batch[0];
       }
     } catch (error) {
-      if (error?.status !== 429) {
+      const isQuotaError = error?.status === 429 || (error?.message && error.message.includes("429"));
+      if (!isQuotaError) {
         throw error;
       }
 
       quotaRetryCount += 1;
       if (quotaRetryCount > MAX_429_RETRIES) {
-        throw error;
+        console.error(`[collectTargetGeneratedImage] Exhausted ${MAX_429_RETRIES} retries for Gemini 429 quota.`);
+        const highDemandError = new Error(
+          "Our AI photo studio is experiencing high traffic worldwide. Any used credits were refunded. Please try again shortly."
+        );
+        highDemandError.code = "AI_HIGH_TRAFFIC_429";
+        highDemandError.status = 429;
+        throw highDemandError;
       }
+
+      const backoffDelay = get429BackoffMs(quotaRetryCount);
+      console.warn(`[collectTargetGeneratedImage] Hit Gemini 429 Rate Limit. Attempt ${quotaRetryCount}/${MAX_429_RETRIES}. Backing off ${backoffDelay}ms before retry...`);
+      await sleep(backoffDelay);
+      continue;
     }
 
     const hasMoreAttempts = !generatedImage && attempts < MAX_GENERATION_ATTEMPTS;
@@ -418,12 +438,29 @@ async function createGeneration({ userId, profile_id, theme_id }) {
     throw error;
   }
 
+  const isAdmin = checkIsAdmin(user);
+
+  // If theme is in draft mode, only admin can generate with it
+  if (theme.status === "draft" && !isAdmin) {
+    const error = new Error("Theme not found or inactive");
+    error.code = "THEME_NOT_FOUND_OR_INACTIVE";
+    error.status = 404;
+    throw error;
+  }
+
   let resolvedPaymentType = "free";
   let isUnlocked = false;
 
-  if (user.paid_credits > 0) {
+  if (isAdmin) {
+    // Admin has unlimited free generations for testing purposes
     resolvedPaymentType = "paid";
     isUnlocked = true;
+    console.log(`[createGeneration] Admin test photoshoot initiated by: ${user.email} (Theme: ${theme.label})`);
+  } else if (user.paid_credits > 0) {
+    resolvedPaymentType = "paid";
+    isUnlocked = true;
+    user.paid_credits = Math.max(0, user.paid_credits - 1);
+    await user.save();
   } else {
     // Check if user has already claimed their free photoshoot
     if (user.free_generations_used > 0) {
@@ -468,15 +505,9 @@ async function createGeneration({ userId, profile_id, theme_id }) {
 
     resolvedPaymentType = "free";
     isUnlocked = false;
-  }
-
-  // Atomically reserve credit and create initial pending generation record
-  if (resolvedPaymentType === "paid") {
-    user.paid_credits = Math.max(0, user.paid_credits - 1);
-  } else {
     user.free_generations_used = 1;
+    await user.save();
   }
-  await user.save();
 
   const generation = await Generation.create({
     user_id: userId,
@@ -486,6 +517,7 @@ async function createGeneration({ userId, profile_id, theme_id }) {
     output_image_url: null,
     payment_type: resolvedPaymentType,
     is_unlocked: isUnlocked,
+    is_test: isAdmin,
     status: "pending",
   });
 
@@ -621,7 +653,10 @@ async function executeBackgroundGeneration({ generationId, userId, profileId, th
     generation.status = "completed";
     await generation.save();
 
-    await Theme.findByIdAndUpdate(themeId, { $inc: { generation_count: 1 } });
+    // Only increment public generation popularity for non-test real user runs
+    if (!generation.is_test) {
+      await Theme.findByIdAndUpdate(themeId, { $inc: { generation_count: 1 } });
+    }
 
     // Send completion notification
     notificationService
@@ -658,8 +693,8 @@ async function handleGenerationFailure(generation, userId, themeLabel, errorMess
     generation.error_message = errorMessage;
     generation.error_code = errorCode;
 
-    // Credit Auto-Refund
-    if (!generation.refunded) {
+    // Credit Auto-Refund (Skip for admin test runs where no credits were deducted)
+    if (!generation.refunded && !generation.is_test) {
       if (generation.payment_type === "paid") {
         await User.findByIdAndUpdate(userId, { $inc: { paid_credits: 1 } });
         console.log(`[handleGenerationFailure] Refunded 1 paid credit to user: ${userId}`);

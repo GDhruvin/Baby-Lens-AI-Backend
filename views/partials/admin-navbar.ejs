@@ -23,6 +23,11 @@
           <span class="link-icon">🎨</span>
           <span class="link-label">Create Theme</span>
         </a>
+        <a href="/api/themes/manage" 
+           class="topbar-link <%= (typeof activeTab !== 'undefined' && activeTab === 'manage-themes') ? 'active' : '' %>">
+          <span class="link-icon">🖼️</span>
+          <span class="link-label">Manage Themes</span>
+        </a>
         <a href="/api/themes/banner/manage" 
            class="topbar-link <%= (typeof activeTab !== 'undefined' && activeTab === 'banner') ? 'active' : '' %>">
           <span class="link-icon">🚩</span>

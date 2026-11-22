@@ -30,6 +30,9 @@ const generationSchema = new mongoose.Schema(
     // Is the final image unlocked (paid or free trial unlocked)?
     is_unlocked: { type: Boolean, default: false },
 
+    // Admin testing flag - test runs don't deduct credits, impact analytics, or increment theme popularity
+    is_test: { type: Boolean, default: false, index: true },
+
     status: {
       type: String,
       enum: ["pending", "processing", "completed", "failed"],

@@ -26,10 +26,12 @@ async function createTheme(req, res, next) {
       files: req.files,
     });
 
+    const isPublished = newTheme.status === "published";
     const shouldNotify =
-      req.body.send_push_notification === "true" ||
-      req.body.send_push_notification === true ||
-      req.body.send_push_notification === "on";
+      isPublished &&
+      (req.body.send_push_notification === "true" ||
+        req.body.send_push_notification === true ||
+        req.body.send_push_notification === "on");
 
     if (shouldNotify) {
       let previewImageUrl = null;
@@ -71,7 +73,11 @@ async function createTheme(req, res, next) {
 async function getAllThemes(req, res, next) {
   try {
     const { search, category } = req.query;
-    const themes = await themeService.getAllThemes({ search, category });
+    const themes = await themeService.getAllThemes({
+      search,
+      category,
+      isAdmin: req.isAdmin || false,
+    });
 
     return res.status(200).json({
       message: "Themes fetched successfully",
@@ -88,7 +94,9 @@ async function getAllThemes(req, res, next) {
  */
 async function getTrendingThemes(req, res, next) {
   try {
-    const themes = await themeService.getTrendingThemes();
+    const themes = await themeService.getTrendingThemes({
+      isAdmin: req.isAdmin || false,
+    });
     return res.status(200).json({
       message: "Trending themes fetched successfully",
       count: themes.length,
@@ -105,7 +113,9 @@ async function getTrendingThemes(req, res, next) {
 async function getSingleTheme(req, res, next) {
   try {
     const { id } = req.params;
-    const theme = await themeService.getThemeById(id);
+    const theme = await themeService.getThemeById(id, {
+      isAdmin: req.isAdmin || false,
+    });
 
     if (!theme) {
       const error = new Error("Theme not found");
@@ -332,6 +342,43 @@ async function broadcastExistingTheme(req, res, next) {
   }
 }
 
+/**
+ * Renders the HTML page to manage themes (publish/unpublish/delete)
+ */
+async function renderManageThemesPage(req, res, next) {
+  try {
+    const themes = await themeService.getAllThemesForAdmin();
+    return res.render("manage-themes", {
+      themes,
+      updated: req.query.updated === "true",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Toggle theme status (published <-> draft)
+ */
+async function toggleThemeStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const updatedTheme = await themeService.toggleThemeStatus(id, status);
+
+    if (req.accepts("html", "json") === "html" && !req.xhr) {
+      return res.redirect("/api/themes/manage?updated=true");
+    }
+
+    return res.status(200).json({
+      message: `Theme status updated to ${updatedTheme.status}`,
+      data: updatedTheme,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   renderCreateThemePage,
   createTheme,
@@ -345,4 +392,6 @@ module.exports = {
   updateBanner,
   renderBroadcastPage,
   broadcastExistingTheme,
+  renderManageThemesPage,
+  toggleThemeStatus,
 };

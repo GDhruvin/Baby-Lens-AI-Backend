@@ -53,6 +53,13 @@ const themeSchema = new mongoose.Schema(
       default: true,
     },
 
+    status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "draft",
+      index: true,
+    },
+
     preview_image_urls: {
       type: [String],
       default: [],

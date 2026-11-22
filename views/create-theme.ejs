@@ -345,14 +345,25 @@
           <textarea name="prompt_template" required placeholder="Raw AI JSON prompt template string..." style="height: 120px;"></textarea>
         </div>
 
+        <div class="form-group">
+          <label>Theme Status *</label>
+          <select name="status" id="theme_status" required onchange="handleStatusChange(this.value)">
+            <option value="draft" selected>🧪 Draft (Internal Admin Testing Only — Hidden from Users)</option>
+            <option value="published">🚀 Published (Immediately Live to Worldwide Users)</option>
+          </select>
+          <small style="display: block; margin-top: 6px; color: var(--text-muted); font-size: 12px;">
+            Draft themes are visible only to your admin account (<code>gabanidhruvin30@gmail.com</code>) on mobile so you can test safely.
+          </small>
+        </div>
+
         <div class="checkbox-card">
           <label for="set_as_banner">Set as Active Festival Special Banner</label>
           <input type="checkbox" id="set_as_banner" name="set_as_banner" value="true" />
         </div>
 
-        <div class="checkbox-card" style="margin-top: 10px;">
+        <div class="checkbox-card" id="push_notification_card" style="margin-top: 10px; opacity: 0.5; pointer-events: none;">
           <label for="send_push_notification">📢 Send Push Notification to All Parents</label>
-          <input type="checkbox" id="send_push_notification" name="send_push_notification" value="true" checked />
+          <input type="checkbox" id="send_push_notification" name="send_push_notification" value="true" disabled />
         </div>
 
         <button type="submit" id="btnSubmit" class="btn-submit">Create Theme</button>
@@ -362,6 +373,22 @@
   </div>
 
   <script>
+    function handleStatusChange(status) {
+      const pushCard = document.getElementById('push_notification_card');
+      const pushCheckbox = document.getElementById('send_push_notification');
+      if (status === 'published') {
+        pushCard.style.opacity = '1';
+        pushCard.style.pointerEvents = 'auto';
+        pushCheckbox.disabled = false;
+        pushCheckbox.checked = true;
+      } else {
+        pushCard.style.opacity = '0.5';
+        pushCard.style.pointerEvents = 'none';
+        pushCheckbox.disabled = true;
+        pushCheckbox.checked = false;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('success') === 'true') {

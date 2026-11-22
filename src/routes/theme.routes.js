@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const themeController = require("../controllers/theme.controller");
-const { requireAuth } = require("../middlewares/auth.middleware");
+const { requireAuth, optionalAuth } = require("../middlewares/auth.middleware");
 const { requireAdminAuth } = require("../middlewares/adminAuth.middleware");
 
 // Multer Config (Memory Storage for Firebase Upload, 10MB limit, image types validation)
@@ -62,14 +62,20 @@ router.get("/broadcast", requireAdminAuth, themeController.renderBroadcastPage);
 // POST /api/themes/broadcast (Broadcast notification for an existing theme) [ADMIN]
 router.post("/broadcast", requireAdminAuth, upload.none(), themeController.broadcastExistingTheme);
 
-// GET /api/themes (Get all active themes) [PUBLIC / APP]
-router.get("/", themeController.getAllThemes);
+// GET /api/themes/manage (Render the manage themes dashboard HTML page) [ADMIN]
+router.get("/manage", requireAdminAuth, themeController.renderManageThemesPage);
 
-// GET /api/themes/trending (Get trending themes) [PUBLIC / APP]
-router.get("/trending", themeController.getTrendingThemes);
+// POST /api/themes/:id/toggle-status (Toggle draft <-> published status) [ADMIN]
+router.post("/:id/toggle-status", requireAdminAuth, upload.none(), themeController.toggleThemeStatus);
 
-// GET /api/themes/:id (Get single theme details) [PUBLIC / APP]
-router.get("/:id", themeController.getSingleTheme);
+// GET /api/themes (Get all active themes; admins also see drafts) [PUBLIC / APP]
+router.get("/", optionalAuth, themeController.getAllThemes);
+
+// GET /api/themes/trending (Get trending themes; admins also see drafts) [PUBLIC / APP]
+router.get("/trending", optionalAuth, themeController.getTrendingThemes);
+
+// GET /api/themes/:id (Get single theme details; admins can access drafts) [PUBLIC / APP]
+router.get("/:id", optionalAuth, themeController.getSingleTheme);
 
 // PUT /api/themes/:id (Update theme, optionally replacing images) [ADMIN]
 router.put(

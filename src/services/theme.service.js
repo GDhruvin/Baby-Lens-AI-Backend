@@ -72,6 +72,8 @@ async function createTheme({ body, files }) {
       label: badge_label || "",
       type: badge_type || "",
     },
+    status: body.status || "draft",
+    is_active: true,
     preview_image_urls: previewCloudPaths,
     baby_angle_description: baby_angle_description || "",
   });
@@ -107,9 +109,15 @@ async function createTheme({ body, files }) {
 
 /**
  * Get all active themes (optional search & category filter)
+ * Non-admins receive only published themes; admins receive drafts as well.
  */
-async function getAllThemes({ search, category }) {
+async function getAllThemes({ search, category, isAdmin = false }) {
   let filter = { is_active: true };
+
+  // Regular users see only published themes (or legacy themes without explicit draft status)
+  if (!isAdmin) {
+    filter.status = { $ne: "draft" };
+  }
 
   // Search functionality (on label)
   if (search) {
@@ -140,6 +148,14 @@ async function getAllThemes({ search, category }) {
       themeObj.preview_image_urls = await Promise.all(
         (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
       );
+
+      // If draft visible to admin, attach badge for clear UI identification
+      if (themeObj.status === "draft") {
+        themeObj.is_draft = true;
+        if (!themeObj.badge || !themeObj.badge.label) {
+          themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
+        }
+      }
       
       return themeObj;
     })
@@ -149,15 +165,20 @@ async function getAllThemes({ search, category }) {
 /**
  * Get trending themes (themes with badge "trending" + top 5 sorted by generation_count)
  */
-async function getTrendingThemes() {
+async function getTrendingThemes({ isAdmin = false } = {}) {
+  const baseFilter = { is_active: true };
+  if (!isAdmin) {
+    baseFilter.status = { $ne: "draft" };
+  }
+
   // Fetch active themes with badge type "trending"
   const trendingBadgeThemes = await Theme.find({
-    is_active: true,
+    ...baseFilter,
     "badge.type": "trending",
   }).populate("category_id");
 
   // Fetch top 5 active themes sorted by generation_count in descending order
-  const topGenerationThemes = await Theme.find({ is_active: true })
+  const topGenerationThemes = await Theme.find(baseFilter)
     .sort({ generation_count: -1 })
     .limit(5)
     .populate("category_id");
@@ -183,6 +204,13 @@ async function getTrendingThemes() {
       themeObj.preview_image_urls = await Promise.all(
         (themeObj.preview_image_urls || []).map((path) => getFirebaseDownloadUrl(path))
       );
+
+      if (themeObj.status === "draft") {
+        themeObj.is_draft = true;
+        if (!themeObj.badge || !themeObj.badge.label) {
+          themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
+        }
+      }
       
       return themeObj;
     })
@@ -192,9 +220,14 @@ async function getTrendingThemes() {
 /**
  * Get single theme by ID
  */
-async function getThemeById(id) {
+async function getThemeById(id, { isAdmin = false } = {}) {
   const theme = await Theme.findById(id).populate("category_id");
   if (!theme) return null;
+
+  // If theme is draft and requester is not admin, hide it
+  if (theme.status === "draft" && !isAdmin) {
+    return null;
+  }
 
   const themeObj = theme.toObject();
   themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
@@ -203,6 +236,13 @@ async function getThemeById(id) {
   themeObj.preview_image_urls = await Promise.all(
     (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
   );
+
+  if (themeObj.status === "draft") {
+    themeObj.is_draft = true;
+    if (!themeObj.badge || !themeObj.badge.label) {
+      themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
+    }
+  }
 
   return themeObj;
 }
@@ -390,6 +430,50 @@ async function updateBanner({ body, file }) {
   return await getActiveBanner();
 }
 
+/**
+ * Fetch all themes for Admin Manage Dashboard
+ */
+async function getAllThemesForAdmin() {
+  const themes = await Theme.find().populate("category_id").sort({ createdAt: -1 });
+
+  return await Promise.all(
+    themes.map(async (themeDoc) => {
+      const themeObj = themeDoc.toObject();
+      themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
+
+      themeObj.preview_image_urls = await Promise.all(
+        (themeObj.preview_image_urls || []).map((p) => getFirebaseDownloadUrl(p))
+      );
+
+      // Default unset status to 'published' for legacy themes
+      if (!themeObj.status) {
+        themeObj.status = themeObj.is_active ? "published" : "draft";
+      }
+
+      return themeObj;
+    })
+  );
+}
+
+/**
+ * Toggle theme status between 'published' and 'draft'
+ */
+async function toggleThemeStatus(id, newStatus) {
+  const theme = await Theme.findById(id);
+  if (!theme) {
+    const error = new Error("Theme not found");
+    error.status = 404;
+    throw error;
+  }
+
+  const targetStatus = newStatus === "published" ? "published" : "draft";
+  theme.status = targetStatus;
+  theme.is_active = targetStatus === "published";
+  await theme.save();
+
+  return theme;
+}
+
 module.exports = {
   getActiveCategories,
   createTheme,
@@ -400,4 +484,6 @@ module.exports = {
   deleteTheme,
   getActiveBanner,
   updateBanner,
+  getAllThemesForAdmin,
+  toggleThemeStatus,
 };
