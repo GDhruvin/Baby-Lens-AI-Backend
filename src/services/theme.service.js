@@ -46,9 +46,16 @@ async function createTheme({ body, files }) {
   }
 
   // Upload Cover Image
-  const safeCoverFilename = coverFile.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+  const safeCoverFilename = coverFile.originalname.replace(
+    /[^a-zA-Z0-9.]/g,
+    "_",
+  );
   const cloudCoverName = `theme_gallery/${Date.now()}_${safeCoverFilename}`;
-  await uploadBufferToFirebase(cloudCoverName, coverFile.buffer, coverFile.mimetype);
+  await uploadBufferToFirebase(
+    cloudCoverName,
+    coverFile.buffer,
+    coverFile.mimetype,
+  );
 
   // Upload Preview Images
   const previewCloudPaths = [];
@@ -81,8 +88,14 @@ async function createTheme({ body, files }) {
   await newTheme.save();
 
   // Auto-set as active Banner if category is Festival or explicitly requested
-  const isFestivalCategory = (categoryExists.name || "").toLowerCase().includes("festival");
-  if (isFestivalCategory || set_as_banner === "true" || set_as_banner === true) {
+  const isFestivalCategory = (categoryExists.name || "")
+    .toLowerCase()
+    .includes("festival");
+  if (
+    isFestivalCategory ||
+    set_as_banner === "true" ||
+    set_as_banner === true
+  ) {
     let existingBanner = await Banner.findOne();
     if (existingBanner) {
       existingBanner.target_theme_id = newTheme._id;
@@ -97,7 +110,9 @@ async function createTheme({ body, files }) {
         target_category: categoryExists.name,
         title: `${label}\nSpecial`,
         label: badge_label || "✦ LIMITED EDITION",
-        description: description || "Stunning festive memories with our AI-powered theme collection.",
+        description:
+          description ||
+          "Stunning festive memories with our AI-powered theme collection.",
         cta_text: "Try Now →",
         is_active: true,
       });
@@ -126,10 +141,10 @@ async function getAllThemes({ search, category, isAdmin = false }) {
 
   // Filter functionality (on category name)
   if (category) {
-    const categoryDoc = await ThemeCategory.findOne({ 
-      name: { $regex: `^${category}$`, $options: "i" } 
+    const categoryDoc = await ThemeCategory.findOne({
+      name: { $regex: `^${category}$`, $options: "i" },
     });
-    
+
     if (categoryDoc) {
       filter.category_id = categoryDoc._id;
     } else {
@@ -138,27 +153,27 @@ async function getAllThemes({ search, category, isAdmin = false }) {
   }
 
   const themes = await Theme.find(filter).populate("category_id");
-  
+
   return await Promise.all(
     themes.map(async (themeDoc) => {
       const themeObj = themeDoc.toObject();
       themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
-      
+
       // Resolve previews to download URLs
       themeObj.preview_image_urls = await Promise.all(
-        (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
+        (themeObj.preview_image_urls || []).map((path) =>
+          getFirebaseDownloadUrl(path),
+        ),
       );
 
       // If draft visible to admin, attach badge for clear UI identification
       if (themeObj.status === "draft") {
         themeObj.is_draft = true;
-        if (!themeObj.badge || !themeObj.badge.label) {
-          themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
-        }
+        themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
       }
-      
+
       return themeObj;
-    })
+    }),
   );
 }
 
@@ -199,21 +214,21 @@ async function getTrendingThemes({ isAdmin = false } = {}) {
     combinedThemes.map(async (themeDoc) => {
       const themeObj = themeDoc.toObject();
       themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
-      
+
       // Resolve preview URLs
       themeObj.preview_image_urls = await Promise.all(
-        (themeObj.preview_image_urls || []).map((path) => getFirebaseDownloadUrl(path))
+        (themeObj.preview_image_urls || []).map((path) =>
+          getFirebaseDownloadUrl(path),
+        ),
       );
 
       if (themeObj.status === "draft") {
         themeObj.is_draft = true;
-        if (!themeObj.badge || !themeObj.badge.label) {
-          themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
-        }
+        themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
       }
-      
+
       return themeObj;
-    })
+    }),
   );
 }
 
@@ -231,17 +246,17 @@ async function getThemeById(id, { isAdmin = false } = {}) {
 
   const themeObj = theme.toObject();
   themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
-  
+
   // Resolve previews to download URLs
   themeObj.preview_image_urls = await Promise.all(
-    (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
+    (themeObj.preview_image_urls || []).map((path) =>
+      getFirebaseDownloadUrl(path),
+    ),
   );
 
   if (themeObj.status === "draft") {
     themeObj.is_draft = true;
-    if (!themeObj.badge || !themeObj.badge.label) {
-      themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
-    }
+    themeObj.badge = { label: "🧪 DRAFT", type: "draft" };
   }
 
   return themeObj;
@@ -282,14 +297,21 @@ async function updateTheme({ id, body, files }) {
       type: badge_type !== undefined ? badge_type : theme.badge.type,
     },
     is_active: is_active !== undefined ? is_active : theme.is_active,
-    baby_angle_description: baby_angle_description !== undefined ? baby_angle_description : theme.baby_angle_description,
+    baby_angle_description:
+      baby_angle_description !== undefined
+        ? baby_angle_description
+        : theme.baby_angle_description,
   };
 
   // Process new cover image if uploaded
   if (coverFile) {
     const safeFilename = coverFile.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
     const cloudFileName = `theme_gallery/${Date.now()}_${safeFilename}`;
-    await uploadBufferToFirebase(cloudFileName, coverFile.buffer, coverFile.mimetype);
+    await uploadBufferToFirebase(
+      cloudFileName,
+      coverFile.buffer,
+      coverFile.mimetype,
+    );
     updateData.image_url = cloudFileName;
 
     // Delete old cover image from Firebase
@@ -321,10 +343,12 @@ async function updateTheme({ id, body, files }) {
   theme = await Theme.findByIdAndUpdate(id, updateData, { new: true });
   const themeObj = theme.toObject();
   themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
-  
+
   // Resolve preview URLs
   themeObj.preview_image_urls = await Promise.all(
-    (themeObj.preview_image_urls || []).map(path => getFirebaseDownloadUrl(path))
+    (themeObj.preview_image_urls || []).map((path) =>
+      getFirebaseDownloadUrl(path),
+    ),
   );
 
   return themeObj;
@@ -354,6 +378,11 @@ async function deleteTheme(id) {
   }
 
   await Theme.findByIdAndDelete(id);
+  // Deactivate any banner pointing to the deleted theme
+  await Banner.updateMany(
+    { target_theme_id: id },
+    { $set: { is_active: false } },
+  );
   return true;
 }
 
@@ -370,18 +399,27 @@ async function getActiveBanner() {
 
   const bannerObj = banner.toObject();
 
+  // If banner targets a theme that was deleted, is inactive, or is in draft mode, hide it from public users
+  if (
+    !bannerObj.target_theme_id ||
+    bannerObj.target_theme_id.is_active === false ||
+    bannerObj.target_theme_id.status === "draft"
+  ) {
+    return null;
+  }
+
   // Resolve target_theme_id image URLs to Firebase download URLs
   if (bannerObj.target_theme_id) {
     if (bannerObj.target_theme_id.image_url) {
       bannerObj.target_theme_id.image_url = await getFirebaseDownloadUrl(
-        bannerObj.target_theme_id.image_url
+        bannerObj.target_theme_id.image_url,
       );
     }
     if (bannerObj.target_theme_id.preview_image_urls) {
       bannerObj.target_theme_id.preview_image_urls = await Promise.all(
         bannerObj.target_theme_id.preview_image_urls.map((p) =>
-          getFirebaseDownloadUrl(p)
-        )
+          getFirebaseDownloadUrl(p),
+        ),
       );
     }
   }
@@ -400,7 +438,15 @@ async function getActiveBanner() {
  * Update/Upsert Banner Configuration
  */
 async function updateBanner({ body, file }) {
-  const { label, title, description, cta_text, target_theme_id, target_category, is_active } = body;
+  const {
+    label,
+    title,
+    description,
+    cta_text,
+    target_theme_id,
+    target_category,
+    is_active,
+  } = body;
 
   let banner = await Banner.findOne();
   if (!banner) {
@@ -411,7 +457,8 @@ async function updateBanner({ body, file }) {
   if (title !== undefined) banner.title = title;
   if (description !== undefined) banner.description = description;
   if (cta_text !== undefined) banner.cta_text = cta_text;
-  if (target_theme_id !== undefined && target_theme_id !== "") banner.target_theme_id = target_theme_id;
+  if (target_theme_id !== undefined && target_theme_id !== "")
+    banner.target_theme_id = target_theme_id;
   if (target_category !== undefined) banner.target_category = target_category;
   banner.is_active = is_active === "true" || is_active === true;
 
@@ -419,7 +466,7 @@ async function updateBanner({ body, file }) {
     const safeFilename = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
     const cloudFileName = `theme_gallery/${Date.now()}_banner_${safeFilename}`;
     await uploadBufferToFirebase(cloudFileName, file.buffer, file.mimetype);
-    
+
     if (banner.image_url) {
       await deleteFromFirebase(banner.image_url);
     }
@@ -434,7 +481,9 @@ async function updateBanner({ body, file }) {
  * Fetch all themes for Admin Manage Dashboard
  */
 async function getAllThemesForAdmin() {
-  const themes = await Theme.find().populate("category_id").sort({ createdAt: -1 });
+  const themes = await Theme.find()
+    .populate("category_id")
+    .sort({ createdAt: -1 });
 
   return await Promise.all(
     themes.map(async (themeDoc) => {
@@ -442,7 +491,9 @@ async function getAllThemesForAdmin() {
       themeObj.image_url = await getFirebaseDownloadUrl(themeObj.image_url);
 
       themeObj.preview_image_urls = await Promise.all(
-        (themeObj.preview_image_urls || []).map((p) => getFirebaseDownloadUrl(p))
+        (themeObj.preview_image_urls || []).map((p) =>
+          getFirebaseDownloadUrl(p),
+        ),
       );
 
       // Default unset status to 'published' for legacy themes
@@ -451,7 +502,7 @@ async function getAllThemesForAdmin() {
       }
 
       return themeObj;
-    })
+    }),
   );
 }
 

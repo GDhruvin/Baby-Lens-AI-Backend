@@ -138,6 +138,25 @@ async function verifyPurchase(req, res, next) {
       },
     });
   } catch (error) {
+    // Graceful recovery for concurrent duplicate purchase verification
+    if (error?.code === 11000) {
+      console.warn(`[verifyPurchase] Duplicate purchase token caught concurrently: ${req.body.purchaseToken}. Returning idempotently.`);
+      try {
+        const existingPurchase = await Purchase.findOne({ transaction_id: req.body.purchaseToken });
+        const user = await User.findById(req.user.id);
+        return res.status(200).json({
+          message: "Purchase already processed",
+          user: {
+            id: user._id,
+            email: user.email,
+            paid_credits: user.paid_credits,
+          },
+          transaction: existingPurchase,
+        });
+      } catch (recoveryErr) {
+        return next(error);
+      }
+    }
     next(error);
   }
 }
@@ -282,6 +301,25 @@ async function renderTransactionsPage(req, res, next) {
       transactions,
     });
   } catch (error) {
+    // Graceful recovery for concurrent duplicate purchase verification
+    if (error?.code === 11000) {
+      console.warn(`[verifyPurchase] Duplicate purchase token caught concurrently: ${req.body.purchaseToken}. Returning idempotently.`);
+      try {
+        const existingPurchase = await Purchase.findOne({ transaction_id: req.body.purchaseToken });
+        const user = await User.findById(req.user.id);
+        return res.status(200).json({
+          message: "Purchase already processed",
+          user: {
+            id: user._id,
+            email: user.email,
+            paid_credits: user.paid_credits,
+          },
+          transaction: existingPurchase,
+        });
+      } catch (recoveryErr) {
+        return next(error);
+      }
+    }
     next(error);
   }
 }

@@ -230,6 +230,23 @@ async function collectTargetGeneratedImage(prompt, referenceImageBase64, referen
         referenceImageBase64,
         referenceMimeType
       );
+
+      // Check for Gemini Safety or Policy block immediately (do not retry)
+      const candidate = generationResponse?.candidates?.[0];
+      if (
+        candidate?.finishReason === "SAFETY" ||
+        candidate?.finishReason === "RECITATION" ||
+        candidate?.finishReason === "BLOCKLIST"
+      ) {
+        console.warn(`[collectTargetGeneratedImage] Generation stopped by safety policy: ${candidate.finishReason}`);
+        const safetyError = new Error(
+          "The AI could not generate this portrait due to lighting or content safety guidelines. Any used credits were restored. Please try uploading another photo of your baby."
+        );
+        safetyError.code = "SAFETY_POLICY_VIOLATION";
+        safetyError.status = 400;
+        throw safetyError;
+      }
+
       const batch = extractGeneratedImages(generationResponse);
 
       if (batch.length) {
@@ -456,57 +473,76 @@ async function createGeneration({ userId, profile_id, theme_id }) {
     resolvedPaymentType = "paid";
     isUnlocked = true;
     console.log(`[createGeneration] Admin test photoshoot initiated by: ${user.email} (Theme: ${theme.label})`);
-  } else if (user.paid_credits > 0) {
-    resolvedPaymentType = "paid";
-    isUnlocked = true;
-    user.paid_credits = Math.max(0, user.paid_credits - 1);
-    await user.save();
   } else {
-    // Check if user has already claimed their free photoshoot
-    if (user.free_generations_used > 0) {
-      const error = new Error("You have used your free photoshoot. Please purchase a photoshoot pack to continue.");
-      error.code = "INSUFFICIENT_CREDITS";
-      error.status = 402;
-      throw error;
-    }
+    // 1. Atomic Paid Credit Deduction (Guarantees zero double-spending race conditions)
+    const updatedPaidUser = await User.findOneAndUpdate(
+      { _id: userId, paid_credits: { $gt: 0 } },
+      { $inc: { paid_credits: -1 } },
+      { new: true }
+    );
 
-    // Anti-abuse: Check if any user linked to the same physical device has already claimed the free photoshoot
-    const linkedDevices = await Device.find({ linked_users: userId });
-    if (linkedDevices && linkedDevices.length > 0) {
-      const allLinkedUserIds = [];
-      linkedDevices.forEach((d) => {
-        if (d.linked_users) {
-          d.linked_users.forEach((uid) => {
-            if (String(uid) !== String(userId)) {
-              allLinkedUserIds.push(uid);
-            }
-          });
-        }
-      });
+    if (updatedPaidUser) {
+      resolvedPaymentType = "paid";
+      isUnlocked = true;
+      user.paid_credits = updatedPaidUser.paid_credits;
+    } else {
+      // 2. User has 0 paid credits; check free trial entitlement
+      if (user.free_generations_used > 0) {
+        const error = new Error("You have used your free photoshoot. Please purchase a photoshoot pack to continue.");
+        error.code = "INSUFFICIENT_CREDITS";
+        error.status = 402;
+        throw error;
+      }
 
-      if (allLinkedUserIds.length > 0) {
-        const abuseFound = await User.exists({
-          _id: { $in: allLinkedUserIds },
-          free_generations_used: { $gt: 0 },
+      // Anti-abuse: Check if any user linked to the same physical device has already claimed the free photoshoot
+      const linkedDevices = await Device.find({ linked_users: userId });
+      if (linkedDevices && linkedDevices.length > 0) {
+        const allLinkedUserIds = [];
+        linkedDevices.forEach((d) => {
+          if (d.linked_users) {
+            d.linked_users.forEach((uid) => {
+              if (String(uid) !== String(userId)) {
+                allLinkedUserIds.push(uid);
+              }
+            });
+          }
         });
 
-        if (abuseFound) {
-          // Flag current user's free trial as consumed to prevent bypass
-          user.free_generations_used = 1;
-          await user.save();
+        if (allLinkedUserIds.length > 0) {
+          const abuseFound = await User.exists({
+            _id: { $in: allLinkedUserIds },
+            free_generations_used: { $gt: 0 },
+          });
 
-          const error = new Error("A free photoshoot has already been claimed on this device. Please purchase a photoshoot pack.");
-          error.code = "DEVICE_FREE_TRIAL_LIMIT_EXCEEDED";
-          error.status = 403;
-          throw error;
+          if (abuseFound) {
+            // Flag current user's free trial as consumed to prevent bypass
+            await User.updateOne({ _id: userId }, { $set: { free_generations_used: 1 } });
+            const error = new Error("A free photoshoot has already been claimed on this device. Please purchase a photoshoot pack.");
+            error.code = "DEVICE_FREE_TRIAL_LIMIT_EXCEEDED";
+            error.status = 403;
+            throw error;
+          }
         }
       }
-    }
 
-    resolvedPaymentType = "free";
-    isUnlocked = false;
-    user.free_generations_used = 1;
-    await user.save();
+      // Atomically consume single free generation (Guarantees parallel requests cannot claim multiple free trials)
+      const updatedFreeUser = await User.findOneAndUpdate(
+        { _id: userId, free_generations_used: 0 },
+        { $set: { free_generations_used: 1 } },
+        { new: true }
+      );
+
+      if (!updatedFreeUser) {
+        const error = new Error("You have used your free photoshoot. Please purchase a photoshoot pack to continue.");
+        error.code = "INSUFFICIENT_CREDITS";
+        error.status = 402;
+        throw error;
+      }
+
+      resolvedPaymentType = "free";
+      isUnlocked = false;
+      user.free_generations_used = 1;
+    }
   }
 
   const generation = await Generation.create({
