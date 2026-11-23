@@ -9,16 +9,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #6366f1;
-      --primary-hover: #4f46e5;
-      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+      --primary: #D05A2A;
+      --primary-hover: #b04318;
+      --primary-light: #fef0eb;
+      --bg: #FAF6F2;
       --card-bg: #ffffff;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      --focus-ring: rgba(99, 102, 241, 0.25);
-      --success: #10b981;
-      --danger: #ef4444;
+      --text-main: #2D1C12;
+      --text-muted: #7C6A5D;
+      --border-color: #EAE0D6;
+      --focus-ring: rgba(208, 90, 42, 0.2);
+      --success: #10B981;
+      --danger: #EF4444;
     }
 
     * {
@@ -28,20 +29,21 @@
       font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
     }
 
-    body {
-      background: var(--bg-gradient);
+    html, body {
+      min-height: 100%;
+      width: 100%;
+      background: var(--bg);
       color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 0 40px 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-font-smoothing: antialiased;
     }
 
     .container {
       width: 100%;
-      max-width: 660px;
-      padding: 0 20px;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 28px 24px 80px 24px;
     }
 
     .header {

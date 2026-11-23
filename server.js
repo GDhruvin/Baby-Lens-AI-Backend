@@ -32,7 +32,39 @@ app.set("trust proxy", 1);
 const requestLogger = require("./src/middlewares/logger.middleware");
 
 // Basic Middleware
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+          "https://unpkg.com",
+        ],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://*.googleapis.com",
+          "https://*.googleusercontent.com",
+          "https://firebasestorage.googleapis.com",
+          "https://storage.googleapis.com",
+        ],
+        connectSrc: ["'self'", "https://*.googleapis.com"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(compression());
 app.use(cors());
 app.use(requestLogger);
